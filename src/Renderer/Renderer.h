@@ -66,14 +66,6 @@ private:
 	std::unique_ptr<GLFWwindow, WindowCleanup> window{ nullptr };
 
 	VkContext ctxt;
-
-	//VkRenderPass renderPass;
-	//VkDescriptorSetLayout descriptorSetLayout;
-	//VkPipelineLayout pipelineLayout;
-	//VkPipeline graphicsPipeline;
-
-	//VkDescriptorPool descriptorPool;
-	//std::vector<VkDescriptorSet> descriptorSets;
 };
 
 
