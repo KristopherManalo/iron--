@@ -1,0 +1,82 @@
+
+# ==============================
+# Build directories
+# ==============================
+build/
+cmake-build-*/
+out/
+bin/
+obj/
+
+# ==============================
+# Compiled binaries and libraries
+# ==============================
+*.exe
+*.dll
+*.so
+*.dylib
+*.lib
+*.a
+*.o
+*.obj
+*.pdb
+*.ilk
+*.exp
+
+# ==============================
+# CMake generated files
+# ==============================
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# ==============================
+# Visual Studio
+# ==============================
+.vs/
+*.sln
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+ipch/
+
+# ==============================
+# VS Code
+# ==============================
+.vscode/
+!.vscode/extensions.json
+
+# ==============================
+# CLion / JetBrains
+# ==============================
+.idea/
+*.iml
+
+# ==============================
+# Debugging and logs
+# ==============================
+*.log
+*.dmp
+*.stackdump
+
+# ==============================
+# Shader compilation artifacts
+# ==============================
+*.spv
+
+# ==============================
+# OS generated files
+# ==============================
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# External dependency build artifacts
+/extern/*/build/
+/extern/*/cmake-build-*/
+
+# Optional: generated test output
+/extern/*/Testing/

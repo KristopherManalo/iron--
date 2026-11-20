@@ -1,0 +1,347 @@
+#include "Renderer.h"
+#include <stdexcept>
+#include <iostream>
+
+void Renderer::initialize(const char progName[]) {
+	initWindow();
+	ctxt.initialize(window.get());
+
+	renderPassManager.initialize(
+		ctxt.getDevice(),
+		ctxt.getSwapChainImageFormat()
+	);
+
+	renderPassManager.getMainRenderPass();
+
+	createFramebuffers();
+
+	imagesInFlight.assign(
+		ctxt.getSwapChainImageViews().size(),
+		VK_NULL_HANDLE
+	);
+}
+
+void Renderer::cleanup() {
+	if (ctxt.getDevice() != VK_NULL_HANDLE) {
+		vkDeviceWaitIdle(ctxt.getDevice());
+	}
+	cleanupFramebuffers();
+	renderPassManager.cleanup();
+	ctxt.cleanup();
+	cleanupWindow();
+}
+
+void Renderer::recreateSwapChain() {
+	int width = 0;
+	int height = 0;
+
+	glfwGetFramebufferSize(window.get(), &width, &height);
+
+	while (width == 0 || height == 0) {
+		if (glfwWindowShouldClose(window.get())) {
+			return;
+		}
+
+		glfwWaitEvents();
+		glfwGetFramebufferSize(window.get(), &width, &height);
+	}
+
+	if (vkDeviceWaitIdle(ctxt.getDevice()) != VK_SUCCESS) {
+		throw std::runtime_error("Failed to wait for device idle");
+	}
+
+	cleanupFramebuffers();
+
+	ctxt.cleanupSwapChain();
+	ctxt.recreateSwapChain();
+
+	createFramebuffers();
+
+	imagesInFlight.assign(
+		ctxt.getSwapChainImageViews().size(),
+		VK_NULL_HANDLE
+	);
+
+	framebufferResized = false;
+}
+
+GLFWwindow* Renderer::getWindow() const {
+	return window.get();
+}
+
+
+void Renderer::framebufferResizeCallback(
+	GLFWwindow* window,
+	int width,
+	int height
+) {
+	auto* renderer = static_cast<Renderer*>(
+		glfwGetWindowUserPointer(window)
+	);
+
+	renderer->framebufferResized = true;
+}
+
+void Renderer::createFramebuffers() {
+	const auto& imageViews = ctxt.getSwapChainImageViews();
+	VkExtent2D extent = ctxt.getSwapChainExtent();
+
+	swapChainFramebuffers.resize(imageViews.size());
+
+	for (size_t i = 0; i < imageViews.size(); i++) {
+		VkImageView attachments[] = {
+			imageViews[i]
+		};
+
+		VkFramebufferCreateInfo framebufferInfo{
+			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+			.renderPass = renderPassManager.getMainRenderPass(),
+			.attachmentCount = 1,
+			.pAttachments = attachments,
+			.width = extent.width,
+			.height = extent.height,
+			.layers = 1
+		};
+
+		if (vkCreateFramebuffer(
+			ctxt.getDevice(),
+			&framebufferInfo,
+			nullptr,
+			&swapChainFramebuffers[i]
+		) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create framebuffer!");
+		}
+	}
+}
+
+void Renderer::cleanupFramebuffers() {
+	for (auto framebuffer : swapChainFramebuffers) {
+		vkDestroyFramebuffer(
+			ctxt.getDevice(),
+			framebuffer,
+			nullptr
+		);
+	}
+
+	swapChainFramebuffers.clear();
+}
+
+void Renderer::drawFrame() {
+	VkDevice device = ctxt.getDevice();
+
+	const FrameData& frame =
+		ctxt.getFrameData(currentFrame);
+
+	// Wait for frame's previous gpu work
+	if (vkWaitForFences(
+		device,
+		1,
+		&frame.inFlightFence,
+		VK_TRUE,
+		UINT64_MAX
+	) != VK_SUCCESS) {
+		throw std::runtime_error("Failed waiting for frame fence");
+	}
+
+	// Acquire a swapchain image
+	uint32_t imageIndex = 0;
+	VkResult result = vkAcquireNextImageKHR(
+		device,
+		ctxt.getSwapChain(),
+		UINT64_MAX,
+		frame.imageAvailableSemaphore,
+		VK_NULL_HANDLE,
+		&imageIndex
+	);
+
+	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+		recreateSwapChain();
+		return;
+	}
+
+	if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+		throw std::runtime_error("Failed to acquire swapchain image");
+	}
+	bool suboptimal = result == VK_SUBOPTIMAL_KHR;
+
+	// Wait if image is still being used by another frame
+	if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
+		if (vkWaitForFences(
+			device,
+			1,
+			&imagesInFlight[imageIndex],
+			VK_TRUE,
+			UINT64_MAX
+		) != VK_SUCCESS) {
+			throw std::runtime_error(
+				"Failed waiting for image fence!"
+			);
+		}
+	}
+	imagesInFlight[imageIndex] = frame.inFlightFence;
+
+	// Reset command buffer
+	VkCommandBuffer commandBuffer =
+		ctxt.getCommandBuffer(currentFrame);
+
+	if (vkResetCommandBuffer(commandBuffer, 0) != VK_SUCCESS) {
+		throw std::runtime_error(
+			"Failed to reset command buffer!"
+		);
+	}
+
+
+	// Record rendering commands
+	recordCommandBuffer(commandBuffer, imageIndex);
+
+	// Reset fence 
+	if (vkResetFences(device, 1, &frame.inFlightFence)
+		!= VK_SUCCESS) {
+		throw std::runtime_error("Failed to reset frame fence!");
+	}
+
+	// Submit command buffer
+	VkPipelineStageFlags waitStages[] = {
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+	};
+
+	VkSemaphore signalSemaphore =
+		ctxt.getRenderFinishedSemaphore(imageIndex);
+
+	VkSubmitInfo submitInfo{
+		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+		.waitSemaphoreCount = 1,
+		.pWaitSemaphores = &frame.imageAvailableSemaphore,
+		.pWaitDstStageMask = waitStages,
+		.commandBufferCount = 1,
+		.pCommandBuffers = &commandBuffer,
+		.signalSemaphoreCount = 1,
+		.pSignalSemaphores = &signalSemaphore
+	};
+
+	if (vkQueueSubmit(
+		ctxt.getGraphicsQueue(),
+		1,
+		&submitInfo,
+		frame.inFlightFence
+	) != VK_SUCCESS) {
+		throw std::runtime_error("Failed to submit draw command!");
+	}
+
+
+	// Present image
+	VkSwapchainKHR swapChain = ctxt.getSwapChain();
+
+	VkPresentInfoKHR presentInfo{
+		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+		.waitSemaphoreCount = 1,
+		.pWaitSemaphores = &signalSemaphore,
+		.swapchainCount = 1,
+		.pSwapchains = &swapChain,
+		.pImageIndices = &imageIndex
+	};
+
+	result = vkQueuePresentKHR(
+		ctxt.getPresentQueue(),
+		&presentInfo
+	);
+
+	if (result != VK_SUCCESS &&
+		result != VK_SUBOPTIMAL_KHR &&
+		result != VK_ERROR_OUT_OF_DATE_KHR) {
+		throw std::runtime_error("Failed to present swapchain image!");
+	}
+
+	if (framebufferResized ||
+		suboptimal ||
+		result == VK_ERROR_OUT_OF_DATE_KHR ||
+		result == VK_SUBOPTIMAL_KHR) {
+
+		framebufferResized = false;
+		recreateSwapChain();
+	}
+
+	currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
+void Renderer::recordCommandBuffer(
+	VkCommandBuffer commandBuffer,
+	uint32_t imageIndex
+) {
+	VkCommandBufferBeginInfo beginInfo{
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
+	};
+
+	if (vkBeginCommandBuffer(
+		commandBuffer,
+		&beginInfo
+	) != VK_SUCCESS) {
+		throw std::runtime_error(
+			"Failed to begin recording command buffer!"
+		);
+	}
+
+	VkClearValue clearColor{
+		.color = {{0.05f, 0.05f, 0.08f, 1.0f}}
+	};
+
+	VkRenderPassBeginInfo renderPassInfo{
+		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+		.renderPass = renderPassManager.getMainRenderPass(),
+		.framebuffer = swapChainFramebuffers.at(imageIndex),
+		.renderArea = {
+			.offset = {0, 0},
+			.extent = ctxt.getSwapChainExtent()
+		},
+		.clearValueCount = 1,
+		.pClearValues = &clearColor
+	};
+
+	vkCmdBeginRenderPass(
+		commandBuffer,
+		&renderPassInfo,
+		VK_SUBPASS_CONTENTS_INLINE
+	);
+
+	// Future:
+	// meshRenderer.draw(commandBuffer);
+	// spriteRenderer.draw(commandBuffer);
+
+	vkCmdEndRenderPass(commandBuffer);
+
+	if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+		throw std::runtime_error(
+			"Failed to record command buffer!"
+		);
+	}
+}
+
+void Renderer::initWindow() {
+	if (glfwInit() != GLFW_TRUE) {
+		throw std::runtime_error("Failed to initialize GLFW");
+	}
+	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
+	GLFWwindow* rawWindow = glfwCreateWindow(
+		WIDTH, HEIGHT, programName.c_str(), nullptr, nullptr
+	);
+
+	if (!rawWindow) {
+		glfwTerminate();
+		throw std::runtime_error("Failed to create window");
+	}
+
+	window.reset(rawWindow);
+
+	glfwSetWindowUserPointer(window.get(), this);
+
+	glfwSetFramebufferSizeCallback(
+		window.get(),
+		framebufferResizeCallback
+	);
+}
+
+void Renderer::cleanupWindow() {
+	window.reset();
+	glfwTerminate();
+}
