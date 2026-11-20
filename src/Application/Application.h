@@ -18,5 +18,10 @@ private:
 	const char* PROGRAM_NAME = "iron--";
 	Renderer renderer;
 
+	void setWindowIcon(
+		GLFWwindow*,
+		const char*
+	);
+
 	void mainLoop();
 };
