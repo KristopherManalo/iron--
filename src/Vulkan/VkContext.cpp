@@ -457,7 +457,8 @@ void VkContext::createRenderFinishedSemaphores() {
 // -------------------
 
 
-std::vector<const char*> VkContext::getRequiredExtensions() {
+std::vector<const char*> VkContext::getRequiredExtensions() const {
+
 	uint32_t glfwExtensionCount = 0;
 	const char** glfwExtensions;
 	glfwExtensions = glfwGetRequiredInstanceExtensions(

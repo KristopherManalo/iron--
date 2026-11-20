@@ -7,7 +7,6 @@
 #include <optional>
 #include <vector>
 #include <string>
-#include <vector>
 //#include <Renderer/Sprite.hpp>
 
 struct FrameData {
@@ -96,7 +95,7 @@ private:
 		}
 	};
 	struct SwapChainSupportDetails {
-		VkSurfaceCapabilitiesKHR capabilities;
+		VkSurfaceCapabilitiesKHR capabilities{};
 		std::vector<VkSurfaceFormatKHR> formats;
 		std::vector<VkPresentModeKHR> presentModes;
 	};
@@ -137,7 +136,7 @@ private:
 
 	void cleanupSwapChainSemaphores();
 
-	std::vector<const char*> getRequiredExtensions();
+	std::vector<const char*> getRequiredExtensions() const;
 
 	VkSurfaceFormatKHR chooseSwapSurfaceFormat(
 		const std::vector<VkSurfaceFormatKHR>&
