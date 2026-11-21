@@ -2,8 +2,12 @@
 #include <stdexcept>
 #include <iostream>
 
+Renderer::Renderer() :
+	triangleRenderer(ctxt, renderPassManager) {
+}
+
 void Renderer::initialize(const char progName[]) {
-	initWindow();
+	initWindow(progName);
 	ctxt.initialize(window.get());
 
 	renderPassManager.initialize(
@@ -19,12 +23,15 @@ void Renderer::initialize(const char progName[]) {
 		ctxt.getSwapChainImageViews().size(),
 		VK_NULL_HANDLE
 	);
+
+	triangleRenderer.initialize();
 }
 
 void Renderer::cleanup() {
 	if (ctxt.getDevice() != VK_NULL_HANDLE) {
 		vkDeviceWaitIdle(ctxt.getDevice());
 	}
+	triangleRenderer.cleanup();
 	cleanupFramebuffers();
 	renderPassManager.cleanup();
 	ctxt.cleanup();
@@ -306,6 +313,7 @@ void Renderer::recordCommandBuffer(
 	// Future:
 	// meshRenderer.draw(commandBuffer);
 	// spriteRenderer.draw(commandBuffer);
+	triangleRenderer.draw(commandBuffer);
 
 	vkCmdEndRenderPass(commandBuffer);
 
@@ -316,14 +324,14 @@ void Renderer::recordCommandBuffer(
 	}
 }
 
-void Renderer::initWindow() {
+void Renderer::initWindow(const char progName[]) {
 	if (glfwInit() != GLFW_TRUE) {
 		throw std::runtime_error("Failed to initialize GLFW");
 	}
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
 	GLFWwindow* rawWindow = glfwCreateWindow(
-		WIDTH, HEIGHT, programName.c_str(), nullptr, nullptr
+		WIDTH, HEIGHT, progName, nullptr, nullptr
 	);
 
 	if (!rawWindow) {

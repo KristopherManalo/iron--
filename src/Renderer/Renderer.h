@@ -7,15 +7,30 @@
 
 #include <memory>
 #include <string>
+#include <fstream>
 
 #include "Vulkan/VkContext.h"
 #include "Renderer/RenderPassManager.h"
 
+// Start Sub-renderers
+#include "Renderer/TriangleRenderer.h"
+//	 End Sub-renderers
+
 class Renderer {
 public:
+	/// <summary>
+	/// Initializes any necesarry
+	/// sub-renderers
+	/// </summary>
+	Renderer();
+
 	bool framebufferResized = false;
 
-	void initialize(const char[]);
+	/// <summary>
+	/// Initializes renderer
+	/// </summary>
+	/// <param name="progName">Name of window</param>
+	void initialize(const char progName[]);
 	void cleanup();
 	
 	void drawFrame();
@@ -26,7 +41,6 @@ public:
 private:
 	const int WIDTH = 800;
 	const int HEIGHT = 600;
-	std::string programName;
 
 	static constexpr size_t MAX_FRAMES_IN_FLIGHT =
 		VkContext::MAX_FRAMES_IN_FLIGHT;
@@ -54,7 +68,7 @@ private:
 	);
 
 
-	void initWindow();
+	void initWindow(const char[]);
 	void cleanupWindow();
 	struct WindowCleanup {
 		void operator()(GLFWwindow* window) const {
@@ -66,6 +80,7 @@ private:
 	std::unique_ptr<GLFWwindow, WindowCleanup> window{ nullptr };
 
 	VkContext ctxt;
-};
 
+	TriangleRenderer triangleRenderer;
+};
 
