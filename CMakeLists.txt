@@ -8,6 +8,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 
 add_executable(iron--
+    assets/resources.rc
+
     src/main.cpp
     
     src/Application/Application.h
@@ -18,9 +20,15 @@ add_executable(iron--
 
     src/Renderer/Renderer.h
     src/Renderer/Renderer.cpp
+
+    src/Renderer/FileHelper.cpp
     
-    
- "src/Renderer/RenderPassManager.h" "src/Renderer/RenderPassManager.cpp")
+    src/Renderer/RenderPassManager.h
+    src/Renderer/RenderPassManager.cpp
+
+    src/Renderer/TriangleRenderer.h
+    src/Renderer/TriangleRenderer.cpp
+)
 
 add_subdirectory(extern/glfw)
 add_subdirectory(extern/glm)
@@ -54,6 +62,7 @@ function(compile_slang_shader SOURCE ENTRY_POINT OUTPUT_NAME STAGE)
         COMMAND "${SLANGC}"
             "${SOURCE_FILE}"
             -entry "${ENTRY_POINT}"
+            -profile spirv_1_3
             -stage "${STAGE}"
             -target spirv
             -o "${OUTPUT_FILE}"
