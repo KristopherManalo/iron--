@@ -6,7 +6,9 @@
 #include "stb/stb_image.h"
 
 void Application::run() {
+#ifndef NDEBUG
 	std::cout << "Hello world\n";
+#endif
 	renderer.initialize(PROGRAM_NAME);
     setWindowIcon(renderer.getWindow(), "assets/mambo.png");
 	mainLoop();
