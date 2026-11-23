@@ -10,18 +10,25 @@
 
 #include "renderer/Renderer.h"
 
+/// @brief Application entry point
 class Application {
 public:
+	/// @brief Runs program
 	void run();
+	/// @brief 
 	void cleanup();
+
+	/// @brief Sets window icon.
+	/// @param window Window of application
+	/// @param iconPath Path to image file
+	void setWindowIcon(
+		GLFWwindow* window,
+		const char* iconPath
+	);
 private:
 	const char* PROGRAM_NAME = "iron--";
 	Renderer renderer;
 
-	void setWindowIcon(
-		GLFWwindow*,
-		const char*
-	);
 
 	void mainLoop();
 };

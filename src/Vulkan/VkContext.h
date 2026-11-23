@@ -14,18 +14,27 @@ struct FrameData {
 	VkFence inFlightFence;
 };
 
-
+/// @brief Contains Vulkan environment variables
+/// required for rendering
 class VkContext {
 public:
 	static constexpr size_t MAX_FRAMES_IN_FLIGHT = 3;
 
-	void initialize(GLFWwindow*);
+	/// @brief Initialize context.
+	///
+	/// Initializes all vulkan context variables
+	/// required to render in target window
+	/// 
+	/// @param window Target window
+	void initialize(GLFWwindow* window);
+
+	/// Cleans up generated environment variables
 	void cleanup();
 
 	void cleanupSwapChain();
 	void recreateSwapChain();
 
-	// Getters
+#pragma region getters
 	VkDevice getDevice() const;
 	VkPhysicalDevice getPhysicalDevice() const;
 
@@ -43,7 +52,15 @@ public:
 	const FrameData& getFrameData(size_t index) const;
 
 	VkSemaphore getRenderFinishedSemaphore(size_t imageIndex) const;
+#pragma endregion getters
 
+	/// @brief Finds a Vulkan memory type 
+	/// supported by the given memory 
+	/// requirements and properties.
+	///
+	/// @param typeFilter Bitmask indicating the memory types supported by the resource.
+	/// @param properties Required Vulkan memory property flags for the allocation.
+	/// @return The index of a matching memory type, or an implementation-defined invalid index if no match is found.
 	uint32_t findMemoryType(
 		uint32_t typeFilter, 
 		VkMemoryPropertyFlags properties
@@ -104,10 +121,7 @@ private:
 		std::vector<VkPresentModeKHR> presentModes;
 	};
 
-	// -------------------
-	// BEGIN INITIALIZERS
-	// -------------------
-
+#pragma region initializers
 	void createInstance();
 
 	void setupDebugMessenger();
@@ -124,22 +138,20 @@ private:
 
 	void createCommandPool();
 
-	//void createFramebuffers();
-
 	void createCommandBuffers();
 
 	void createFrameData();
 
 	void createRenderFinishedSemaphores();
+#pragma endregion initializers
 
-	// -------------------
-	// END INITIALIZERS
-	// -------------------
-
+#pragma region cleanup
 	void cleanupCommandBuffers();
 
 	void cleanupSwapChainSemaphores();
+#pragma endregion cleanup
 
+#pragma region helpers
 	std::vector<const char*> getRequiredExtensions() const;
 
 	VkSurfaceFormatKHR chooseSwapSurfaceFormat(
@@ -195,4 +207,5 @@ private:
 		const VkDebugUtilsMessengerCallbackDataEXT*,
 		void* pUserData
 	);
+#pragma endregion helpers
 };

@@ -10,6 +10,7 @@
 
 #include "Vulkan/VkContext.h"
 
+/// @brief Creates main Renderpass
 class RenderPassManager {
 public:
 	void initialize(
