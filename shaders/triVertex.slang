@@ -6,9 +6,9 @@ struct VertexOutput {
 [shader("vertex")]
 VertexOutput vertexMain(uint vertexIndex : SV_VulkanVertexID) {
     float2 positions[3] = {
-        float2( 0.0, -0.5),
-        float2(-0.5,  0.5),
-        float2( 0.5,  0.5),
+        float2( 0.0, -1.0),
+        float2(-1.0,  1.0),
+        float2( 1.0,  1.0),
     };
 
     VertexOutput output;

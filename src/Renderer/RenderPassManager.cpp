@@ -1,4 +1,4 @@
-#include "Renderer/RenderPassManager.h"
+#include "renderer/RenderPassManager.h"
 #include <stdexcept>
 
 void RenderPassManager::initialize(

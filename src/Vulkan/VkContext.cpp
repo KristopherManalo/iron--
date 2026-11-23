@@ -4,6 +4,8 @@
 #include <set>
 #include <algorithm>
 
+#include "config.h"
+
 #define PROGRAM_NAME "Iron--"
 #define ENGINE_NAME "Iron--"
 
@@ -128,6 +130,23 @@ VkSemaphore VkContext::getRenderFinishedSemaphore(
 	return renderFinishedSemaphores.at(imageIndex);
 }
 
+uint32_t VkContext::findMemoryType(
+	uint32_t typeFilter,
+	VkMemoryPropertyFlags properties
+) const {
+	VkPhysicalDeviceMemoryProperties memProperties;
+	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+
+	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+		if ((typeFilter & (1 << i))
+			&& (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+			return i;
+		}
+	}
+
+	throw std::runtime_error("Failed to find suitable memory type");
+}
+
 // -------------------
 // BEGIN INITIALIZERS
 // -------------------
@@ -145,13 +164,17 @@ void VkContext::createInstance() {
 		.applicationVersion = VK_MAKE_VERSION(1, 0, 0),
 		.pEngineName = ENGINE_NAME,
 		.engineVersion = VK_MAKE_VERSION(1, 0, 0),
-		.apiVersion = VK_API_VERSION_1_0
+		.apiVersion = VK_API_VERSION_1_1
 	};
 
 	auto extensions = getRequiredExtensions();
 	VkInstanceCreateInfo createInfo{
 		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
 		.pApplicationInfo = &appInfo,
+
+		.enabledLayerCount = static_cast<uint32_t>(validationLayers.size()),
+		.ppEnabledLayerNames = validationLayers.data(),
+
 		.enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
 		.ppEnabledExtensionNames = extensions.data(),
 	};
@@ -262,13 +285,13 @@ void VkContext::createLogicalDevice() {
 	createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 	//createInfo.pNext
 
-	if (enableValidationLayers) {
-		createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-		createInfo.ppEnabledLayerNames = validationLayers.data();
-	}
-	else {
-		createInfo.enabledLayerCount = 0;
-	}
+	//if (enableValidationLayers) {
+	//	createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+	//	createInfo.ppEnabledLayerNames = validationLayers.data();
+	//}
+	//else {
+	//	createInfo.enabledLayerCount = 0;
+	//}
 
 	if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS) {
 		throw std::runtime_error("Error: failed to create logical device!");
@@ -491,6 +514,14 @@ VkSurfaceFormatKHR VkContext::chooseSwapSurfaceFormat(
 VkPresentModeKHR VkContext::chooseSwapPresentMode(
 	const std::vector<VkPresentModeKHR>& availablePresentModes
 ) {
+#ifdef PRESENT_MODE_UNCAPPED
+	for (const auto& mode : availablePresentModes) {
+		if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
+			printf("Present mode: IMMEDIATE\n");
+			return mode;
+		}
+}
+#endif
 	for (const auto& availablePresentMode
 		: availablePresentModes) {
 		if (availablePresentMode

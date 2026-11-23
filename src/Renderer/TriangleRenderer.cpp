@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include "TriangleRenderer.h"
-#include "Renderer/FileHelper.cpp"
+#include "renderer/FileHelper.h"
 
 TriangleRenderer::TriangleRenderer(
 	VkContext& ctxt,
@@ -10,8 +10,7 @@ TriangleRenderer::TriangleRenderer(
 }
 
 
-void TriangleRenderer::initialize(
-) {
+void TriangleRenderer::initialize() {
 	std::cout << ctxt.getPhysicalDevice() << std::endl;
 	std::cout << rpm.getMainRenderPass() << std::endl;
 	createPipelineLayout();
@@ -71,8 +70,8 @@ void TriangleRenderer::createPipelineLayout() {
 }
 
 void TriangleRenderer::createGraphicsPipeline() {
-	auto vertShaderCode = readFile("shaders/triangle.spv");
-	auto fragShaderCode = readFile("shaders/fragment.spv");
+	auto vertShaderCode = readFile("shaders/triVert.spv");
+	auto fragShaderCode = readFile("shaders/triFrag.spv");
 
 	VkShaderModule vertShaderModule 
 		= createShaderModule(ctxt, vertShaderCode);
@@ -127,7 +126,7 @@ void TriangleRenderer::createGraphicsPipeline() {
 #else
 		.cullMode = VK_CULL_MODE_NONE,
 #endif // NDEBUG
-		.frontFace = VK_FRONT_FACE_CLOCKWISE,
+		.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
 		.depthBiasEnable = VK_FALSE,
 		.depthBiasConstantFactor = 0.0f,
 		.depthBiasClamp = 0.0f,
@@ -163,7 +162,6 @@ void TriangleRenderer::createGraphicsPipeline() {
 	};
 
 	VkPipelineColorBlendAttachmentState colorBlendAttachment{
-		//.blendEnable = VK_FALSE,
 		.blendEnable = VK_TRUE,
 		.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
 		.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,

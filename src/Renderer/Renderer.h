@@ -10,10 +10,15 @@
 #include <fstream>
 
 #include "Vulkan/VkContext.h"
-#include "Renderer/RenderPassManager.h"
+#include "renderer/RenderPassManager.h"
+
+#include <glm/glm.hpp>
+
+#define DEFAULT_CLEAR_COLOR glm::vec4(0.05f, 0.05f, 0.08f, 1.0f)
 
 // Start Sub-renderers
-#include "Renderer/TriangleRenderer.h"
+#include "renderer/TriangleRenderer.h"
+#include "renderer/SpriteRenderer.h"
 //	 End Sub-renderers
 
 class Renderer {
@@ -33,7 +38,9 @@ public:
 	void initialize(const char progName[]);
 	void cleanup();
 	
-	void drawFrame();
+	void drawFrame(
+		glm::vec4 clearColor = DEFAULT_CLEAR_COLOR
+	);
 
 	void recreateSwapChain();
 
@@ -49,7 +56,11 @@ private:
 
 	std::vector<VkFence> imagesInFlight;
 
+	VkContext ctxt;
 	RenderPassManager renderPassManager;
+
+	TriangleRenderer triangleRenderer;
+	SpriteRenderer spriteRenderer;
 
 	std::vector<VkFramebuffer> swapChainFramebuffers;
 
@@ -58,7 +69,8 @@ private:
 
 	void recordCommandBuffer(
 		VkCommandBuffer,
-		uint32_t
+		uint32_t,
+		glm::vec4
 	);
 
 	static void framebufferResizeCallback(
@@ -79,8 +91,5 @@ private:
 	};
 	std::unique_ptr<GLFWwindow, WindowCleanup> window{ nullptr };
 
-	VkContext ctxt;
-
-	TriangleRenderer triangleRenderer;
 };
 

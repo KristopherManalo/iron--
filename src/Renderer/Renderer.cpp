@@ -3,7 +3,8 @@
 #include <iostream>
 
 Renderer::Renderer() :
-	triangleRenderer(ctxt, renderPassManager) {
+	triangleRenderer(ctxt, renderPassManager),
+	spriteRenderer(ctxt, renderPassManager) {
 }
 
 void Renderer::initialize(const char progName[]) {
@@ -25,12 +26,14 @@ void Renderer::initialize(const char progName[]) {
 	);
 
 	triangleRenderer.initialize();
+	spriteRenderer.initialize();
 }
 
 void Renderer::cleanup() {
 	if (ctxt.getDevice() != VK_NULL_HANDLE) {
 		vkDeviceWaitIdle(ctxt.getDevice());
 	}
+	spriteRenderer.cleanup();
 	triangleRenderer.cleanup();
 	cleanupFramebuffers();
 	renderPassManager.cleanup();
@@ -133,7 +136,9 @@ void Renderer::cleanupFramebuffers() {
 	swapChainFramebuffers.clear();
 }
 
-void Renderer::drawFrame() {
+void Renderer::drawFrame(
+	glm::vec4 clearColor
+) {
 	VkDevice device = ctxt.getDevice();
 
 	const FrameData& frame =
@@ -199,7 +204,11 @@ void Renderer::drawFrame() {
 
 
 	// Record rendering commands
-	recordCommandBuffer(commandBuffer, imageIndex);
+	recordCommandBuffer(
+		commandBuffer, 
+		imageIndex,
+		clearColor
+	);
 
 	// Reset fence 
 	if (vkResetFences(device, 1, &frame.inFlightFence)
@@ -273,7 +282,8 @@ void Renderer::drawFrame() {
 
 void Renderer::recordCommandBuffer(
 	VkCommandBuffer commandBuffer,
-	uint32_t imageIndex
+	uint32_t imageIndex,
+	glm::vec4 clearColor
 ) {
 	VkCommandBufferBeginInfo beginInfo{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
@@ -288,7 +298,7 @@ void Renderer::recordCommandBuffer(
 		);
 	}
 
-	VkClearValue clearColor{
+	VkClearValue clearValue{
 		.color = {{0.05f, 0.05f, 0.08f, 1.0f}}
 	};
 
@@ -301,7 +311,7 @@ void Renderer::recordCommandBuffer(
 			.extent = ctxt.getSwapChainExtent()
 		},
 		.clearValueCount = 1,
-		.pClearValues = &clearColor
+		.pClearValues = &clearValue
 	};
 
 	vkCmdBeginRenderPass(
@@ -312,8 +322,8 @@ void Renderer::recordCommandBuffer(
 
 	// Future:
 	// meshRenderer.draw(commandBuffer);
-	// spriteRenderer.draw(commandBuffer);
 	triangleRenderer.draw(commandBuffer);
+	spriteRenderer.draw(commandBuffer);
 
 	vkCmdEndRenderPass(commandBuffer);
 

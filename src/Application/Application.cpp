@@ -2,8 +2,10 @@
 #include <filesystem>
 #include "Application.h"
 
-#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION 
 #include "stb/stb_image.h"
+
+#include "config.h"
 
 void Application::run() {
 #ifndef NDEBUG
@@ -47,7 +49,11 @@ void Application::setWindowIcon(
 
 void Application::mainLoop() {
     std::cout << "Press spacebar to quit\n" << std::endl;
-    float speed = 10.0f;
+
+#ifdef IN_TITLE_SHOW_FPS
+	auto lastTime = std::chrono::steady_clock::now();
+    int frameCount = 0;
+#endif
     while (!glfwWindowShouldClose(renderer.getWindow())) {
         glfwPollEvents();
 #define getkeypress(key) (glfwGetKey(renderer.getWindow(), key) == GLFW_PRESS)
@@ -65,12 +71,37 @@ void Application::mainLoop() {
             std::cout << "HOLDING D :3" << std::endl;
         }
 
+#ifndef NDEBUG
 		if (renderer.framebufferResized) {
 			renderer.framebufferResized = false;
 			renderer.recreateSwapChain();
             std::cout << "WAS RESIZED :3" << std::endl;
 		}
+#endif
+
         renderer.drawFrame();
+
+#ifdef IN_TITLE_SHOW_FPS
+        frameCount++;
+
+        auto currentTime = std::chrono::steady_clock::now();
+        float elapsed = std::chrono::duration<float>(
+            currentTime - lastTime
+        ).count();
+
+        if (elapsed >= 0.5f) {
+            int fps = static_cast<int>(frameCount / elapsed);
+
+            glfwSetWindowTitle(
+                renderer.getWindow(),
+                std::format("{} | FPS: {}", PROGRAM_NAME, fps).c_str()
+            );
+
+            frameCount = 0;
+            lastTime = currentTime;
+        }
+#endif
+
     }
 }
 

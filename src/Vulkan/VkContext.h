@@ -42,8 +42,12 @@ public:
 
 	const FrameData& getFrameData(size_t index) const;
 
-	VkSemaphore getRenderFinishedSemaphore(size_t) const;
+	VkSemaphore getRenderFinishedSemaphore(size_t imageIndex) const;
 
+	uint32_t findMemoryType(
+		uint32_t typeFilter, 
+		VkMemoryPropertyFlags properties
+	) const;
 private:
 
 	//bool enableValidationLayers = false;

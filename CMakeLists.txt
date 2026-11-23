@@ -11,6 +11,7 @@ add_executable(iron--
     assets/resources.rc
 
     src/main.cpp
+    src/config.h
     
     src/Application/Application.h
     src/Application/Application.cpp
@@ -18,16 +19,28 @@ add_executable(iron--
     src/Vulkan/VkContext.h
     src/Vulkan/VkContext.cpp
 
-    src/Renderer/Renderer.h
-    src/Renderer/Renderer.cpp
+    src/types/Vertex.h
 
-    src/Renderer/FileHelper.cpp
+    src/resources/Buffer.h
+    src/resources/Buffer.cpp
+    src/resources/Image.h
+    src/resources/Image.cpp
+    src/resources/Texture.h
+    src/resources/Texture.cpp
+
+    src/renderer/Renderer.h
+    src/renderer/Renderer.cpp
+
+    src/renderer/FileHelper.h
     
-    src/Renderer/RenderPassManager.h
-    src/Renderer/RenderPassManager.cpp
+    src/renderer/RenderPassManager.h
+    src/renderer/RenderPassManager.cpp
 
-    src/Renderer/TriangleRenderer.h
-    src/Renderer/TriangleRenderer.cpp
+    src/renderer/TriangleRenderer.h
+    src/renderer/TriangleRenderer.cpp
+
+    src/renderer/SpriteRenderer.h
+    src/renderer/SpriteRenderer.cpp
 )
 
 add_subdirectory(extern/glfw)
@@ -73,16 +86,18 @@ function(compile_slang_shader SOURCE ENTRY_POINT OUTPUT_NAME STAGE)
     set(SHADER_OUTPUTS ${SHADER_OUTPUTS} "${OUTPUT_FILE}" PARENT_SCOPE)
 endfunction()
 
-compile_slang_shader(triangle.slang vertexMain triangle vertex)
-compile_slang_shader(fragment.slang fragmentMain fragment fragment)
+compile_slang_shader(triVertex.slang vertexMain triVert vertex)
+compile_slang_shader(triFragment.slang fragmentMain triFrag fragment)
+compile_slang_shader(sprite.slang vertexMain sprite.vert vertex)
+compile_slang_shader(sprite.slang fragmentMain sprite.frag fragment)
 
 add_custom_target(Shaders DEPENDS ${SHADER_OUTPUTS})
 add_dependencies(${PROJECT_NAME} Shaders)
 
 add_custom_command(TARGET iron-- POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/sprites
-        $<TARGET_FILE_DIR:iron-->/sprites
+#    COMMAND ${CMAKE_COMMAND} -E copy_directory
+#        ${CMAKE_SOURCE_DIR}/sprites
+#        $<TARGET_FILE_DIR:iron-->/sprites
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/assets
         $<TARGET_FILE_DIR:iron-->/assets
