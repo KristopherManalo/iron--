@@ -16,28 +16,31 @@
 
 #define DEFAULT_CLEAR_COLOR glm::vec4(0.05f, 0.05f, 0.08f, 1.0f)
 
-// Start Sub-renderers
+#pragma region sub-renderer includes
 #include "renderer/TriangleRenderer.h"
 #include "renderer/SpriteRenderer.h"
-//	 End Sub-renderers
+#pragma endregion
 
+
+/// @brief Renderer class that polls
+/// sub-renderers to fill a commandbuffer
 class Renderer {
 public:
-	/// <summary>
-	/// Initializes any necesarry
+	/// @briefInitializes any necesarry
 	/// sub-renderers
-	/// </summary>
 	Renderer();
 
 	bool framebufferResized = false;
 
-	/// <summary>
-	/// Initializes renderer
-	/// </summary>
-	/// <param name="progName">Name of window</param>
+	/// @brief Initializes renderer.
+	/// @param progName Name of window
 	void initialize(const char progName[]);
+
+	/// @brief Performs cleanup operations.
 	void cleanup();
 	
+	/// @brief Tells renderer to draw a frame.
+	/// @param clearColor Background color
 	void drawFrame(
 		glm::vec4 clearColor = DEFAULT_CLEAR_COLOR
 	);

@@ -8,6 +8,10 @@
 #include <vector>
 #include <Vulkan/VkContext.h>
 
+/// @brief Converts file path into 
+/// std::vector of chars.
+/// @param filename Path to file
+/// @return std::vector<char>  
 static std::vector<char> readFile(
 	const std::string& filename
 ) {
@@ -30,6 +34,10 @@ static std::vector<char> readFile(
 	return buffer;
 }
 
+/// @brief Creates shader module.
+/// @param ctxt Vulkan context 
+/// @param code 
+/// @return Creates usable Vulkan shader module.
 static VkShaderModule createShaderModule(
 	VkContext &ctxt,
 	const std::vector<char>& code

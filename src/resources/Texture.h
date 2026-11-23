@@ -7,6 +7,7 @@
 #include "resources/Image.h"
 #include "resources/Buffer.h"
 
+/// @brief Wrapper to create Texture
 class Texture {
 public:
 	Texture(

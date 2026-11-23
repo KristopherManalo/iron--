@@ -7,6 +7,7 @@
 
 #include "Vulkan/VkContext.h"
 
+/// @brief Wrapper for Vulkan Buffer
 class Buffer {
 public:
 	Buffer(

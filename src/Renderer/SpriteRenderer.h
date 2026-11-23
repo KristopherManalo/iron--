@@ -12,16 +12,28 @@
 
 #include <memory>
 
+/// @brief Subrenderer that
+/// allows 2d images to be rendered
 class SpriteRenderer {
 public:
+	/// @brief Construsts sprite rendering.
+	/// @param ctxt Vulkan context.
+	/// @param rpm Render pass manager.
 	SpriteRenderer(
-		VkContext&,
-		RenderPassManager&
+		VkContext& ctxt,
+		RenderPassManager& rpm
 	);
 
+	/// @brief Initializes any necesarry 
+	/// class variables
 	void initialize();
+
+	/// @brief Cleans any class variables
 	void cleanup();
 
+	/// @brief Puts commands to draw
+	/// into command buffer.
+	/// @param commandBuffer Buffer to put commands
 	void draw(VkCommandBuffer);
 private:
 	VkContext& ctxt;

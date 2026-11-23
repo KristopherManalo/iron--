@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include <vulkan/vulkan.h>
@@ -7,6 +6,11 @@
 #include <array>
 #include <cstddef>
 
+/// @brief Vertex class
+/// 
+/// Each vertex has its position,
+/// its textureless color,
+/// and its coordinates to sample the texture
 struct Vertex {
     glm::vec2 position;
     glm::vec3 color;

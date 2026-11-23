@@ -2,6 +2,7 @@
 
 #include "Vulkan/VkContext.h"
 
+/// @brief Wrapper to create image
 class Image {
 public:
 	Image(
