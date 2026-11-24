@@ -20,6 +20,7 @@ add_executable(iron--
     src/Vulkan/VkContext.cpp
 
     src/types/Vertex.h
+    src/types/SpriteInstance.h
 
     src/resources/Buffer.h
     src/resources/Buffer.cpp

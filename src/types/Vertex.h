@@ -15,8 +15,11 @@ struct Vertex {
     glm::vec2 position;
     glm::vec2 texCoord;
 
+    static constexpr uint32_t ATTRIBUTE_LOCATION_BASE = 0;
+    static constexpr uint32_t ATTRIBUTE_COUNT = 2;
+
     static VkVertexInputBindingDescription
-    getBindingDescription() {
+        getBindingDescription() {
         VkVertexInputBindingDescription bindingDescription{};
 
         bindingDescription.binding = 0;
@@ -27,7 +30,7 @@ struct Vertex {
     }
 
     static std::array<VkVertexInputAttributeDescription, 2>
-    getAttributeDescriptions() {
+        getAttributeDescriptions() {
         std::array<VkVertexInputAttributeDescription, 2>
             attributeDescriptions{};
 
