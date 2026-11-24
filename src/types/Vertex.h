@@ -13,11 +13,13 @@
 /// and its coordinates to sample the texture
 struct Vertex {
     glm::vec2 position;
-    glm::vec3 color;
     glm::vec2 texCoord;
 
+    static constexpr uint32_t ATTRIBUTE_LOCATION_BASE = 0;
+    static constexpr uint32_t ATTRIBUTE_COUNT = 2;
+
     static VkVertexInputBindingDescription
-    getBindingDescription() {
+        getBindingDescription() {
         VkVertexInputBindingDescription bindingDescription{};
 
         bindingDescription.binding = 0;
@@ -27,9 +29,9 @@ struct Vertex {
         return bindingDescription;
     }
 
-    static std::array<VkVertexInputAttributeDescription, 3>
-    getAttributeDescriptions() {
-        std::array<VkVertexInputAttributeDescription, 3>
+    static std::array<VkVertexInputAttributeDescription, 2>
+        getAttributeDescriptions() {
+        std::array<VkVertexInputAttributeDescription, 2>
             attributeDescriptions{};
 
         attributeDescriptions[0].binding = 0;
@@ -37,15 +39,11 @@ struct Vertex {
         attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
         attributeDescriptions[0].offset = offsetof(Vertex, position);
 
+
         attributeDescriptions[1].binding = 0;
         attributeDescriptions[1].location = 1;
-        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[1].offset = offsetof(Vertex, color);
-
-        attributeDescriptions[2].binding = 0;
-        attributeDescriptions[2].location = 2;
-        attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
+        attributeDescriptions[1].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[1].offset = offsetof(Vertex, texCoord);
 
         return attributeDescriptions;
     }

@@ -9,6 +9,8 @@
 
 #include "resources/Buffer.h"
 #include "resources/Texture.h"
+#include "types/Vertex.h"
+#include "types/SpriteInstance.h"
 
 #include <memory>
 
@@ -48,6 +50,9 @@ private:
 
 	std::unique_ptr<Buffer> vertexBuffer;
 	std::unique_ptr<Buffer> indexBuffer;
+	uint32_t indexCount = 0;
+	std::unique_ptr<Buffer> instanceBuffer;
+	uint32_t instanceCount = 0;
 
 	std::unique_ptr<Texture> texture;
 
@@ -62,5 +67,17 @@ private:
 		VkBuffer srcBuffer,
 		VkBuffer dstBuffer,
 		VkDeviceSize size
+	);
+
+	void createVertexBuffer(
+		const std::vector<Vertex>&
+	);
+
+	void createIndexBuffer(
+		const std::vector<uint16_t>&
+	);
+
+	void createInstanceBuffer(
+		const std::vector<SpriteInstance>&
 	);
 };

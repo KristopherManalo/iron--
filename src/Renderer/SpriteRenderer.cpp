@@ -1,8 +1,11 @@
 #include <iostream>
+#include <vector>
 
 #include "SpriteRenderer.h"
 #include "renderer/FileHelper.h"
+
 #include "types/Vertex.h"
+#include "types/SpriteInstance.h"
 
 SpriteRenderer::SpriteRenderer(
 	VkContext& ctxt,
@@ -12,72 +15,32 @@ SpriteRenderer::SpriteRenderer(
 
 void SpriteRenderer::initialize() {
 	const std::vector<Vertex> vertices = {
-		{ { -0.5f, -0.5f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
-		{ { 0.5f, -0.5f },{ 0.0f, 1.0f, 0.0f },{ 1.0f, 0.0f } },
-		{ { 0.5f,  0.5f },{ 0.0f, 0.0f, 1.0f },{ 1.0f, 1.0f } },
-		{ { -0.5f,  0.5f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 1.0f } }
+		{ { -0.5f, -0.5f },	{ 0.0f, 0.0f } },
+		{ { 0.5f, -0.5f	},	{ 1.0f, 0.0f } },
+		{ { 0.5f,  0.5f },	{ 1.0f, 1.0f } },
+		{ { -0.5f,  0.5f },	{ 0.0f, 1.0f } }
 	};
 
 	const std::vector<uint16_t> indices = {
 		0, 1, 2,
 		2, 3, 0
 	};
+	indexCount = static_cast<uint32_t>(indices.size());
+	
+	std::vector<SpriteInstance> instances = {
+	{ { 0.0f,  0.0f, 0.5f },{ 0.5f, 0.5f }, 0.0f,{ 1,1,1,1 } },
+	{ { 0.5f,  0.0f, 0.5f },{ 0.5f, 0.5f }, 0.0f,{ 1,0,0,1 } },
+	{ { -0.5f,  0.0f, 0.5f },{ 0.5f, 0.5f }, 0.0f,{ 0,1,0,1 } },
+	{ { 0.0f,  0.5f, 0.5f },{ 0.5f, 0.5f }, 0.0f,{ 0,0,1,1 } },
+	{ { 0.0f, -0.5f, 0.5f },{ 0.5f, 0.5f }, 0.0f,{ 1,1,0,1 } }
+	};
 
-	// Vertex buffer
-	VkDeviceSize vertexBufferSize =
-		sizeof(vertices[0]) * vertices.size();
 
-	Buffer stagingVertexBuffer(
-		ctxt,
-		vertexBufferSize,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-	);
+	createVertexBuffer(vertices);
 
-	stagingVertexBuffer.map(vertices.data(), vertexBufferSize);
+	createIndexBuffer(indices);
 
-	vertexBuffer = std::make_unique<Buffer>(
-		ctxt,
-		vertexBufferSize,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-	);
-
-	copyBuffer(
-		stagingVertexBuffer.get(),
-		vertexBuffer->get(),
-		vertexBufferSize
-	);
-
-	// Index buffer
-	VkDeviceSize indexBufferSize =
-		sizeof(indices[0]) * indices.size();
-
-	Buffer stagingIndexBuffer(
-		ctxt,
-		indexBufferSize,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-	);
-
-	stagingIndexBuffer.map(indices.data(), indexBufferSize);
-
-	indexBuffer = std::make_unique<Buffer>(
-		ctxt,
-		indexBufferSize,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-		VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-	);
-
-	copyBuffer(
-		stagingIndexBuffer.get(),
-		indexBuffer->get(),
-		indexBufferSize
-	);
+	createInstanceBuffer(instances);
 
 	// Texture and pipeline setup
 	texture = std::make_unique<Texture>(
@@ -126,6 +89,7 @@ void SpriteRenderer::cleanup() {
 
 	vertexBuffer.reset();
 	indexBuffer.reset();
+	instanceBuffer.reset();
 }
 
 void SpriteRenderer::draw(
@@ -166,17 +130,18 @@ void SpriteRenderer::draw(
 
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-	VkBuffer vertexBuffers[] = {
-		vertexBuffer->get()
+	VkBuffer buffers[] = {
+		vertexBuffer->get(),
+		instanceBuffer->get()
 	};
 
-	VkDeviceSize offsets[] = { 0 };
+	VkDeviceSize offsets[] = { 0, 0 };
 
 	vkCmdBindVertexBuffers(
 		commandBuffer,
 		0,
-		1,
-		vertexBuffers,
+		2,
+		buffers,
 		offsets
 	);
 
@@ -190,8 +155,8 @@ void SpriteRenderer::draw(
 
 	vkCmdDrawIndexed(
 		commandBuffer,
-		6,
-		1,
+		indexCount,
+		instanceCount,
 		0,
 		0,
 		0
@@ -245,13 +210,38 @@ void SpriteRenderer::createGraphicsPipeline() {
 		VK_DYNAMIC_STATE_SCISSOR,
 	};
 
-	auto bindingDescription = Vertex::getBindingDescription();
-	auto attributeDescriptions = Vertex::getAttributeDescriptions();
+
+	std::array<VkVertexInputBindingDescription, 2>
+		bindingDescriptions = {
+		Vertex::getBindingDescription(),
+		SpriteInstance::getBindingDescription()
+	};
+
+#pragma region Create attribute descriptions
+	std::array<VkVertexInputAttributeDescription, 6>
+		attributeDescriptions;
+
+	auto vertexAttributes = Vertex::getAttributeDescriptions();
+	auto instanceAttributes = SpriteInstance::getAttributeDescriptions();
+
+	std::copy(
+		vertexAttributes.begin(),
+		vertexAttributes.end(),
+		attributeDescriptions.begin()
+	);
+
+	std::copy(
+		instanceAttributes.begin(),
+		instanceAttributes.end(),
+		attributeDescriptions.begin() + vertexAttributes.size()
+	);
+#pragma endregion Create attribute descriptions
 
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-		.vertexBindingDescriptionCount = 1,
-		.pVertexBindingDescriptions = &bindingDescription,
+		.vertexBindingDescriptionCount = 
+			static_cast<uint32_t>(bindingDescriptions.size()),
+		.pVertexBindingDescriptions = bindingDescriptions.data(),
 		.vertexAttributeDescriptionCount =
 			static_cast<uint32_t>(attributeDescriptions.size()),
 		.pVertexAttributeDescriptions = attributeDescriptions.data(),
@@ -554,3 +544,91 @@ void SpriteRenderer::copyBuffer(
 		throw std::runtime_error("Failed to copy buffer");
 	}
 }
+
+void SpriteRenderer::createVertexBuffer(
+	const std::vector<Vertex>& vertices
+) {
+	// Vertex buffer
+	VkDeviceSize vertexBufferSize =
+		sizeof(vertices[0]) * vertices.size();
+
+	Buffer stagingVertexBuffer(
+		ctxt,
+		vertexBufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+	);
+
+	stagingVertexBuffer.map(vertices.data(), vertexBufferSize);
+
+	vertexBuffer = std::make_unique<Buffer>(
+		ctxt,
+		vertexBufferSize,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+	);
+
+	copyBuffer(
+		stagingVertexBuffer.get(),
+		vertexBuffer->get(),
+		vertexBufferSize
+	);
+}
+
+void SpriteRenderer::createIndexBuffer(
+	const std::vector<uint16_t>& indices
+) {
+	// Index buffer
+	VkDeviceSize indexBufferSize =
+		sizeof(indices[0]) * indices.size();
+
+	Buffer stagingIndexBuffer(
+		ctxt,
+		indexBufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+	);
+
+	stagingIndexBuffer.map(indices.data(), indexBufferSize);
+
+	indexBuffer = std::make_unique<Buffer>(
+		ctxt,
+		indexBufferSize,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+		VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+	);
+
+	copyBuffer(
+		stagingIndexBuffer.get(),
+		indexBuffer->get(),
+		indexBufferSize
+	);
+}
+
+void SpriteRenderer::createInstanceBuffer(
+	const std::vector<SpriteInstance>& instances
+) {
+	VkDeviceSize bufferSize =
+		sizeof(SpriteInstance) * instances.size();
+
+	instanceBuffer = std::make_unique<Buffer>(
+		ctxt,
+		bufferSize,
+		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+	);
+
+	instanceBuffer->map(
+		instances.data(),
+		bufferSize
+	);
+
+	instanceCount = static_cast<uint32_t>(instances.size());
+	//std::cout << instanceCount << std::endl;
+}
+
