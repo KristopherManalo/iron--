@@ -6,9 +6,11 @@
 #include <array>
 #include <cstddef>
 
-struct SpriteId {
+/// @brief Defines the sheet and index
+/// sprite instance identifies as
+struct SpriteID {
 	uint32_t sheetIndex;
-	uint32_t spriteIndex;
+	uint32_t spriteLocation;
 };
 
 struct SpriteInstance {

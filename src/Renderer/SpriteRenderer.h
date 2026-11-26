@@ -46,20 +46,31 @@ public:
 		uint32_t currentFrame
 	);
 
-	//void draw(
-	//	VkCommandBuffer commandBuffer,
-	//	uint32_t currentFrame,
-	//	const std::vector<std::vector<SpriteInstance>>& batches
-	//);
+	/// @brief Updates the instance buffers for the current frame.
+	/// @param currentFrame The index of the current frame.
+	void updateInstanceBuffers(
+		uint32_t currentFrame
+	);
 
+	/// @brief Loads a sprite sheet into sprite renderer
+	/// and returns what index to write instances into.
+	/// @param texturePath File path to sprite sheet.
+	/// @param sprites UV definitions of sprites.
+	/// @return Sprite sheet index.
 	uint32_t loadSpriteSheet(
 		const std::string& texturePath,
 		const std::vector<SpriteUV>& sprites
 	);
 
-	void updateInstanceBuffers(
-		uint32_t currentFrame
+	/// @brief Adds sprite to sprite sheet's instance.
+	/// @param sheetIndex Index of sprite sheet.
+	/// @param instance Instance info of new sprite.
+	/// @return {sheetIndex, spriteLocation}
+	SpriteID addSprite(
+		uint32_t sheetIndex,
+		const SpriteInstance& instance
 	);
+
 private:
 	
 	VkContext& ctxt;
@@ -85,8 +96,6 @@ private:
 
 	VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
 	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
-	//VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
-	//std::array<VkDescriptorSet, VkContext::MAX_FRAMES_IN_FLIGHT> descriptorSets;
 	std::vector<
 		std::array<
 		VkDescriptorSet,
@@ -103,7 +112,6 @@ private:
 		VkContext::MAX_FRAMES_IN_FLIGHT
 	>> instanceBuffers;
 	uint32_t instanceCount = 0;
-	//std::unique_ptr<Buffer> atlasBuffer;
 
 	std::unique_ptr<Texture> texture;
 
@@ -142,9 +150,5 @@ private:
 	);
 
 	void createInstanceBuffers();
-
-
-	//void createAtlasBuffer(
-	//	const std::vector<SpriteUV>&
-	//);
 };
+

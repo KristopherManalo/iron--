@@ -19,58 +19,10 @@ void SpriteRenderer::initialize(
 		VkContext::MAX_FRAMES_IN_FLIGHT>& 
 		uniformBuffers
 ) {
-	indexCount = static_cast<uint32_t>(indices.size());
-	
-	std::vector<SpriteInstance> instances;
-
-	constexpr uint32_t columns = 10;
-	constexpr uint32_t rows = 10;
-	constexpr float spacing = 0.5f;
-
-	const std::vector<glm::vec4> tints = {
-		{ 1.0f, 0.5f, 0.5f, 1.0f }, // Pink
-		{ 0.5f, 1.0f, 0.5f, 1.0f }, // Green
-		{ 0.5f, 0.5f, 1.0f, 1.0f }, // Blue
-		{ 1.0f, 1.0f, 0.5f, 1.0f }, // Yellow
-		{ 1.0f, 0.5f, 1.0f, 1.0f }, // Purple
-		{ 0.5f, 1.0f, 1.0f, 1.0f }, // Cyan
-	};
-
-	instances.reserve(columns * rows);
-
-	for (uint32_t y = 0; y < rows; ++y) {
-		for (uint32_t x = 0; x < columns; ++x) {
-			uint32_t index = y * columns + x;
-
-			glm::vec4 tint = index < 4
-				? glm::vec4(1.0f)
-				: tints[(index - 4) % tints.size()];
-
-			instances.push_back({
-				{ 4.0f + x * spacing, 1.0f + y * spacing, 0.5f },
-				{ 0.5f, 0.5f },
-				0.0f,
-				tint,
-				index % 4
-				});
-		}
-	}
-
 	createVertexBuffer();
 	createIndexBuffer();
 
-	//createInstanceBuffer(instances);
 	createInstanceBuffers();
-	instanceBatches[0] = instances;
-
-	//// Texture and pipeline setup
-	//texture = std::make_unique<Texture>(
-	//	ctxt,
-	//	//"assets/mambo.png"
-	//	"assets/sprites/test.png"
-	//);
-
-	//createAtlasBuffer();
 
 	createDescriptorSetLayout();
 	createDescriptorPool();
@@ -126,78 +78,6 @@ void SpriteRenderer::cleanup() {
 	vertexBuffer.reset();
 	indexBuffer.reset();
 }
-
-//void SpriteRenderer::draw(
-//	VkCommandBuffer commandBuffer,
-//	uint32_t currentFrame
-//) {
-//	vkCmdBindPipeline(
-//		commandBuffer,
-//		VK_PIPELINE_BIND_POINT_GRAPHICS,
-//		graphicsPipeline
-//	);
-//
-//	vkCmdBindDescriptorSets(
-//		commandBuffer,
-//		VK_PIPELINE_BIND_POINT_GRAPHICS,
-//		pipelineLayout,
-//		0,
-//		1,
-//		&descriptorSets[currentFrame],
-//		0,
-//		nullptr
-//	);
-//
-//	VkViewport viewport{
-//		.x = 0.0f,
-//		.y = 0.0f,
-//		.width = static_cast<float>(ctxt.getSwapChainExtent().width),
-//		.height = static_cast<float>(ctxt.getSwapChainExtent().height),
-//		.minDepth = 0.0f,
-//		.maxDepth = 1.0f,
-//	};
-//
-//	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-//
-//	VkRect2D scissor{
-//		.offset = { 0, 0 },
-//		.extent = ctxt.getSwapChainExtent(),
-//	};
-//
-//	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-//
-//	VkBuffer buffers[] = {
-//		vertexBuffer->get(),
-//		instanceBuffer->get()
-//	};
-//
-//	VkDeviceSize offsets[] = { 0, 0 };
-//
-//	vkCmdBindVertexBuffers(
-//		commandBuffer,
-//		0,
-//		2,
-//		buffers,
-//		offsets
-//	);
-//
-//	vkCmdBindIndexBuffer(
-//		commandBuffer,
-//		indexBuffer->get(),
-//		0,
-//		VK_INDEX_TYPE_UINT16
-//	);
-//	
-//
-//	vkCmdDrawIndexed(
-//		commandBuffer,
-//		indexCount,
-//		instanceCount,
-//		0,
-//		0,
-//		0
-//	);
-//}
 
 void SpriteRenderer::draw(
 	VkCommandBuffer commandBuffer,
@@ -285,6 +165,17 @@ uint32_t SpriteRenderer::loadSpriteSheet(
 	);
 	instanceBatches.emplace_back();
 	return static_cast<uint32_t>(spriteSheets.size() - 1);
+}
+
+SpriteID SpriteRenderer::addSprite(
+	uint32_t sheetIndex,
+	const SpriteInstance& instance
+) {
+	instanceBatches[sheetIndex].push_back(instance);
+	return SpriteID{ 
+		sheetIndex,
+		static_cast<uint32_t>(instanceBatches[sheetIndex].size() - 1)
+	};
 }
 
 void SpriteRenderer::createPipelineLayout() {
@@ -687,73 +578,6 @@ void SpriteRenderer::createDescriptorSets(
 			);
 		}
 	}
-
-
-	//VkDescriptorImageInfo imageInfo{
-	//	.sampler = texture->getSampler(),
-	//	.imageView = texture->getImageView(),
-	//	.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-	//};
-	//// Sprite Atlas
-	//VkDescriptorBufferInfo atlasInfo{
-	//	.buffer = atlasBuffer->get(),
-	//	.offset = -1,
-	//	.range = atlasSprites.size() * sizeof(SpriteUV),
-	//};
-
-	//for (size_t i = 0; i < ctxt.MAX_FRAMES_IN_FLIGHT; i++) {
-	//	VkDescriptorBufferInfo bufferInfo{
-	//		.buffer = uniformBuffers[i]->get(),
-	//		.offset = 0,
-	//		.range = sizeof(CameraUBO)
-	//	};
-
-	//	// Sprite texture
-	//	VkWriteDescriptorSet spriteWrite{
-	//		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-	//		.dstSet = descriptorSets[i],
-	//		.dstBinding = 0,
-	//		.descriptorCount = 1,
-	//		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-	//		.pImageInfo = &imageInfo
-	//	};
-
-	//	// Camera UBO
-	//	VkWriteDescriptorSet cameraWrite{
-	//		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-	//		.dstSet = descriptorSets[i],
-	//		.dstBinding = 1,
-	//		.descriptorCount = 1,
-	//		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-	//		.pBufferInfo = &bufferInfo
-	//	};
-
-	//	// Atlas Sprites
-	//	VkWriteDescriptorSet atlasWrite{
-	//		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-	//		.dstSet = descriptorSets[i],
-	//		.dstBinding = 2,
-	//		.dstArrayElement = 0,
-	//		.descriptorCount = 1,
-	//		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-	//		.pBufferInfo = &atlasInfo
-	//	};
-
-
-	//	std::array<VkWriteDescriptorSet, 3> writes{
-	//		spriteWrite,
-	//		cameraWrite,
-	//		atlasWrite,
-	//	};
-
-	//	vkUpdateDescriptorSets(
-	//		ctxt.getDevice(),
-	//		static_cast<uint32_t>(writes.size()),
-	//		writes.data(),
-	//		0,
-	//		nullptr
-	//	);
-	//}
 }
 
 void SpriteRenderer::copyBuffer(
@@ -1010,24 +834,4 @@ void SpriteRenderer::updateInstanceBuffers(
 		);
 	}
 }
-
-//void SpriteRenderer::createAtlasBuffer(
-//) {
-//	const VkDeviceSize bufferSize =
-//		atlasSprites.size() * sizeof(SpriteUV);
-//
-//	atlasBuffer = std::make_unique<Buffer>(
-//		ctxt,
-//		bufferSize,
-//		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-//		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
-//			| VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-//	);
-//
-//	atlasBuffer->write(
-//		atlasSprites.data(),
-//		bufferSize,
-//		0
-//	);
-//}
 

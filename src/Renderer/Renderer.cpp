@@ -39,13 +39,50 @@ void Renderer::initialize(const char progName[]) {
 		{ { 0.525f, 0.525f },{ 0.975f, 0.975f } }
 	};
 
-	spriteRenderer.loadSpriteSheet(
+	uint32_t temp_sheet
+		= spriteRenderer.loadSpriteSheet(
 		"assets/sprites/test.png",
 		atlasSprites
 	);
 	spriteRenderer.initialize(
 		uniformBuffers
 	);
+	std::vector<SpriteInstance> instances;
+	constexpr uint32_t columns = 10;
+	constexpr uint32_t rows = 10;
+	constexpr float spacing = 0.5f;
+
+	const std::vector<glm::vec4> tints = {
+		{ 1.0f, 0.5f, 0.5f, 1.0f }, // Pink
+		{ 0.5f, 1.0f, 0.5f, 1.0f }, // Green
+		{ 0.5f, 0.5f, 1.0f, 1.0f }, // Blue
+		{ 1.0f, 1.0f, 0.5f, 1.0f }, // Yellow
+		{ 1.0f, 0.5f, 1.0f, 1.0f }, // Purple
+		{ 0.5f, 1.0f, 1.0f, 1.0f }, // Cyan
+	};
+
+	//instances.reserve(columns * rows);
+
+	for (uint32_t y = 0; y < rows; ++y) {
+		for (uint32_t x = 0; x < columns; ++x) {
+			uint32_t index = y * columns + x;
+
+			glm::vec4 tint = index < 4
+				? glm::vec4(1.0f)
+				: tints[(index - 4) % tints.size()];
+
+			spriteRenderer.addSprite(
+				temp_sheet,
+				{
+					{ 4.0f + x * spacing, 1.0f + y * spacing, 0.5f },
+					{ 0.5f, 0.5f },
+					0.0f,
+					tint,
+					index % 4
+				}
+			);
+		}
+	}
 }
 
 void Renderer::cleanup() {
