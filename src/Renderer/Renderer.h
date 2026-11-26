@@ -11,6 +11,9 @@
 
 #include "Vulkan/VkContext.h"
 #include "renderer/RenderPassManager.h"
+#include "scene/Camera.h"
+
+#include "types/CameraUBO.h"
 
 #include <glm/glm.hpp>
 
@@ -26,6 +29,7 @@
 /// sub-renderers to fill a commandbuffer
 class Renderer {
 public:
+	Camera camera;
 	/// @briefInitializes any necesarry
 	/// sub-renderers
 	Renderer();
@@ -49,8 +53,8 @@ public:
 
 	GLFWwindow* getWindow() const;
 private:
-	const int WIDTH = 800;
-	const int HEIGHT = 600;
+	const int WIDTH = 1280;
+	const int HEIGHT = 720;
 
 	static constexpr size_t MAX_FRAMES_IN_FLIGHT =
 		VkContext::MAX_FRAMES_IN_FLIGHT;
@@ -66,6 +70,9 @@ private:
 	SpriteRenderer spriteRenderer;
 
 	std::vector<VkFramebuffer> swapChainFramebuffers;
+
+
+	std::array<std::unique_ptr<Buffer>, MAX_FRAMES_IN_FLIGHT> uniformBuffers;
 
 	void createFramebuffers();
 	void cleanupFramebuffers();
@@ -83,6 +90,10 @@ private:
 	);
 
 
+	void createUniformBuffers();
+	void updateUniformBuffer(uint32_t currentFrame);
+	void cleanupUniformBuffers();
+
 	void initWindow(const char[]);
 	void cleanupWindow();
 	struct WindowCleanup {
@@ -93,6 +104,7 @@ private:
 		}
 	};
 	std::unique_ptr<GLFWwindow, WindowCleanup> window{ nullptr };
+
 
 };
 

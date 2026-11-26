@@ -1,6 +1,7 @@
 #include "Buffer.h"
 #include <stdexcept>
 #include <string>
+#include <assert.h>
 
 
 Buffer::Buffer(
@@ -8,7 +9,7 @@ Buffer::Buffer(
 	VkDeviceSize size, 
 	VkBufferUsageFlags usage, 
 	VkMemoryPropertyFlags properties
-) : ctxt(ctxt) {
+) : ctxt(ctxt), bufferSize(size) {
 	VkDevice device = ctxt.getDevice();
 	VkBufferCreateInfo bufferInfo{
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -66,6 +67,17 @@ Buffer::Buffer(
 
 		throw std::runtime_error("Failed to bind buffer memory");
 	}
+
+	if (properties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
+		vkMapMemory(
+			ctxt.getDevice(),
+			memory,
+			0,
+			bufferSize,
+			0,
+			&mapped
+		);
+	}
 }
 
 Buffer::~Buffer() {
@@ -74,6 +86,11 @@ Buffer::~Buffer() {
 
 void Buffer::cleanup() {
 	VkDevice device = ctxt.getDevice();
+
+	if (mapped != nullptr) {
+		vkUnmapMemory(ctxt.getDevice(), memory);
+		mapped = nullptr;
+	}
 
 	if (buffer != VK_NULL_HANDLE) {
 		vkDestroyBuffer(device, buffer, nullptr);
@@ -85,26 +102,41 @@ void Buffer::cleanup() {
 	}
 }
 
-void Buffer::map(
+//void Buffer::map(
+//	const void* data,
+//	VkDeviceSize size
+//) {
+//	void* mapped = nullptr;
+//
+//	if (vkMapMemory(
+//		ctxt.getDevice(),
+//		memory,
+//		0,
+//		size,
+//		0,
+//		&mapped
+//	) != VK_SUCCESS) {
+//		throw std::runtime_error("Failed to map buffer memory");
+//	}
+//
+//	std::memcpy(mapped, data, static_cast<size_t>(size));
+//
+//	vkUnmapMemory(ctxt.getDevice(), memory);
+//}
+
+void Buffer::write(
 	const void* data,
-	VkDeviceSize size
+	VkDeviceSize size,
+	VkDeviceSize offset
 ) {
-	void* mapped = nullptr;
+	assert(mapped != nullptr);
+	//assert(offset + size <= bufferSize);
 
-	if (vkMapMemory(
-		ctxt.getDevice(),
-		memory,
-		0,
-		size,
-		0,
-		&mapped
-	) != VK_SUCCESS) {
-		throw std::runtime_error("Failed to map buffer memory");
-	}
-
-	std::memcpy(mapped, data, static_cast<size_t>(size));
-
-	vkUnmapMemory(ctxt.getDevice(), memory);
+	memcpy(
+		static_cast<char*>(mapped) + offset,
+		data,
+		size
+	);
 }
 
 VkBuffer Buffer::get() const {

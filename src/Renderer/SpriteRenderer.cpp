@@ -6,6 +6,7 @@
 
 #include "types/Vertex.h"
 #include "types/SpriteInstance.h"
+#include "types/CameraUBO.h"
 
 SpriteRenderer::SpriteRenderer(
 	VkContext& ctxt,
@@ -13,7 +14,11 @@ SpriteRenderer::SpriteRenderer(
 ) : ctxt(ctxt), rpm(rpm) {
 }
 
-void SpriteRenderer::initialize() {
+void SpriteRenderer::initialize(
+	const std::array<std::unique_ptr<Buffer>, 
+		VkContext::MAX_FRAMES_IN_FLIGHT>& 
+		uniformBuffers
+) {
 	const std::vector<Vertex> vertices = {
 		{ { -0.5f, -0.5f },	{ 0.0f, 0.0f } },
 		{ { 0.5f, -0.5f	},	{ 1.0f, 0.0f } },
@@ -27,14 +32,40 @@ void SpriteRenderer::initialize() {
 	};
 	indexCount = static_cast<uint32_t>(indices.size());
 	
-	std::vector<SpriteInstance> instances = {
-	{ { 0.0f,  0.0f, 0.5f },{ 0.5f, 0.5f }, 0.0f,{ 1,1,1,1 } },
-	{ { 0.5f,  0.0f, 0.5f },{ 0.5f, 0.5f }, 0.0f,{ 1,0,0,1 } },
-	{ { -0.5f,  0.0f, 0.5f },{ 0.5f, 0.5f }, 0.0f,{ 0,1,0,1 } },
-	{ { 0.0f,  0.5f, 0.5f },{ 0.5f, 0.5f }, 0.0f,{ 0,0,1,1 } },
-	{ { 0.0f, -0.5f, 0.5f },{ 0.5f, 0.5f }, 0.0f,{ 1,1,0,1 } }
+	std::vector<SpriteInstance> instances;
+
+	constexpr uint32_t columns = 10;
+	constexpr uint32_t rows = 10;
+	constexpr float spacing = 0.5f;
+
+	const std::vector<glm::vec4> tints = {
+		{ 1.0f, 0.5f, 0.5f, 1.0f }, // Pink
+		{ 0.5f, 1.0f, 0.5f, 1.0f }, // Green
+		{ 0.5f, 0.5f, 1.0f, 1.0f }, // Blue
+		{ 1.0f, 1.0f, 0.5f, 1.0f }, // Yellow
+		{ 1.0f, 0.5f, 1.0f, 1.0f }, // Purple
+		{ 0.5f, 1.0f, 1.0f, 1.0f }, // Cyan
 	};
 
+	instances.reserve(columns * rows);
+
+	for (uint32_t y = 0; y < rows; ++y) {
+		for (uint32_t x = 0; x < columns; ++x) {
+			uint32_t index = y * columns + x;
+
+			glm::vec4 tint = index < 4
+				? glm::vec4(1.0f)
+				: tints[(index - 4) % tints.size()];
+
+			instances.push_back({
+				{ 4.0f + x * spacing, 1.0f + y * spacing, 0.5f },
+				{ 0.5f, 0.5f },
+				0.0f,
+				tint,
+				index % 4
+				});
+		}
+	}
 
 	createVertexBuffer(vertices);
 
@@ -45,12 +76,18 @@ void SpriteRenderer::initialize() {
 	// Texture and pipeline setup
 	texture = std::make_unique<Texture>(
 		ctxt,
-		"assets/mambo.png"
+		//"assets/mambo.png"
+		"assets/sprites/test.png"
 	);
+
+	//createAtlasBuffer(atlasSprites);
+	createAtlasBuffer();
 
 	createDescriptorSetLayout();
 	createDescriptorPool();
-	createDescriptorSets();
+	createDescriptorSets(
+		uniformBuffers
+	);
 
 	createPipelineLayout();
 	createGraphicsPipeline();
@@ -75,7 +112,8 @@ void SpriteRenderer::cleanup() {
 	if (descriptorPool != VK_NULL_HANDLE) {
 		vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 		descriptorPool = VK_NULL_HANDLE;
-		descriptorSet = VK_NULL_HANDLE;
+		//descriptorSet = VK_NULL_HANDLE;
+		descriptorSets.fill(VK_NULL_HANDLE);
 	}
 
 	if (descriptorSetLayout != VK_NULL_HANDLE) {
@@ -87,13 +125,15 @@ void SpriteRenderer::cleanup() {
 
 	texture.reset();
 
+	atlasBuffer.reset();
 	vertexBuffer.reset();
 	indexBuffer.reset();
 	instanceBuffer.reset();
 }
 
 void SpriteRenderer::draw(
-	VkCommandBuffer commandBuffer
+	VkCommandBuffer commandBuffer,
+	uint32_t currentFrame
 ) {
 	vkCmdBindPipeline(
 		commandBuffer,
@@ -107,7 +147,7 @@ void SpriteRenderer::draw(
 		pipelineLayout,
 		0,
 		1,
-		&descriptorSet,
+		&descriptorSets[currentFrame],
 		0,
 		nullptr
 	);
@@ -218,7 +258,8 @@ void SpriteRenderer::createGraphicsPipeline() {
 	};
 
 #pragma region Create attribute descriptions
-	std::array<VkVertexInputAttributeDescription, 6>
+	std::array<VkVertexInputAttributeDescription, 
+		Vertex::ATTRIBUTE_COUNT + SpriteInstance::ATTRIBUTE_COUNT>
 		attributeDescriptions;
 
 	auto vertexAttributes = Vertex::getAttributeDescriptions();
@@ -376,8 +417,25 @@ void SpriteRenderer::createDescriptorSetLayout() {
 		.pImmutableSamplers = nullptr,
 	};
 
-	std::array<VkDescriptorSetLayoutBinding, 1> bindings = {
-		spriteTexture
+	VkDescriptorSetLayoutBinding cameraUBO{
+		.binding = 1,
+		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT
+	};
+
+	VkDescriptorSetLayoutBinding atlasBinding{
+		.binding = 2,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+		.pImmutableSamplers = nullptr
+	};
+
+	std::array<VkDescriptorSetLayoutBinding, 3> bindings = {
+		spriteTexture,
+		cameraUBO,
+		atlasBinding
 	};
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo{
@@ -397,11 +455,21 @@ void SpriteRenderer::createDescriptorSetLayout() {
 }
 
 void SpriteRenderer::createDescriptorPool() {
-	std::array<VkDescriptorPoolSize, 1> poolSizes{
+	std::array<VkDescriptorPoolSize, 3> poolSizes{
+		// Sprite texture descriptors
 		VkDescriptorPoolSize{
 			.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			.descriptorCount = 1,
+			.descriptorCount = static_cast<uint32_t>(ctxt.MAX_FRAMES_IN_FLIGHT),
 		},
+		// Camera UBO descriptors
+		VkDescriptorPoolSize{
+			.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.descriptorCount = static_cast<uint32_t>(ctxt.MAX_FRAMES_IN_FLIGHT),
+		},
+		VkDescriptorPoolSize{
+			.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = static_cast<uint32_t>(ctxt.MAX_FRAMES_IN_FLIGHT),
+		}
 	};
 
 	VkDescriptorPoolCreateInfo poolInfo{
@@ -420,18 +488,27 @@ void SpriteRenderer::createDescriptorPool() {
 	}
 }
 
-void SpriteRenderer::createDescriptorSets() {
+void SpriteRenderer::createDescriptorSets(
+	const std::array<std::unique_ptr<Buffer>, 
+		VkContext::MAX_FRAMES_IN_FLIGHT>&
+		uniformBuffers
+) {
+
+
+	std::array<VkDescriptorSetLayout, VkContext::MAX_FRAMES_IN_FLIGHT> layouts;
+	layouts.fill(descriptorSetLayout);
+
 	VkDescriptorSetAllocateInfo allocInfo{
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
 		.descriptorPool = descriptorPool,
-		.descriptorSetCount = 1,
-		.pSetLayouts = &descriptorSetLayout
+		.descriptorSetCount = ctxt.MAX_FRAMES_IN_FLIGHT,
+		.pSetLayouts = layouts.data()
 	};
 
 	if (vkAllocateDescriptorSets(
 		ctxt.getDevice(),
 		&allocInfo,
-		&descriptorSet
+		descriptorSets.data()
 	) != VK_SUCCESS) {
 		throw std::runtime_error("Failed to allocate desscriptor sets");
 	}
@@ -441,24 +518,66 @@ void SpriteRenderer::createDescriptorSets() {
 		.imageView = texture->getImageView(),
 		.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 	};
-
-	VkWriteDescriptorSet descriptorWrite{
-		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-		.dstSet = descriptorSet,
-		.dstBinding = 0,
-		.dstArrayElement = 0,
-		.descriptorCount = 1,
-		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		.pImageInfo = &imageInfo,
+	// Sprite Atlas
+	VkDescriptorBufferInfo atlasInfo{
+		.buffer = atlasBuffer->get(),
+		.offset = 0,
+		.range = atlasSprites.size() * sizeof(atlasSprites),
 	};
-	
-	vkUpdateDescriptorSets(
-		ctxt.getDevice(),
-		1,
-		&descriptorWrite,
-		0,
-		nullptr
-	);
+
+	for (size_t i = 0; i < ctxt.MAX_FRAMES_IN_FLIGHT; i++) {
+		VkDescriptorBufferInfo bufferInfo{
+			.buffer = uniformBuffers[i]->get(),
+			.offset = 0,
+			.range = sizeof(CameraUBO)
+		};
+
+		// Sprite texture
+		VkWriteDescriptorSet spriteWrite{
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.dstSet = descriptorSets[i],
+			.dstBinding = 0,
+			.descriptorCount = 1,
+			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			.pImageInfo = &imageInfo
+		};
+
+		// Camera UBO
+		VkWriteDescriptorSet cameraWrite{
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.dstSet = descriptorSets[i],
+			.dstBinding = 1,
+			.descriptorCount = 1,
+			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.pBufferInfo = &bufferInfo
+		};
+
+		// Atlas Sprites
+		VkWriteDescriptorSet atlasWrite{
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.dstSet = descriptorSets[i],
+			.dstBinding = 2,
+			.dstArrayElement = 0,
+			.descriptorCount = 1,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.pBufferInfo = &atlasInfo
+		};
+
+
+		std::array<VkWriteDescriptorSet, 3> writes{
+			spriteWrite,
+			cameraWrite,
+			atlasWrite,
+		};
+
+		vkUpdateDescriptorSets(
+			ctxt.getDevice(),
+			static_cast<uint32_t>(writes.size()),
+			writes.data(),
+			0,
+			nullptr
+		);
+	}
 }
 
 void SpriteRenderer::copyBuffer(
@@ -560,7 +679,11 @@ void SpriteRenderer::createVertexBuffer(
 		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 	);
 
-	stagingVertexBuffer.map(vertices.data(), vertexBufferSize);
+	stagingVertexBuffer.write(
+		vertices.data(), 
+		vertexBufferSize,
+		0
+	);
 
 	vertexBuffer = std::make_unique<Buffer>(
 		ctxt,
@@ -592,7 +715,11 @@ void SpriteRenderer::createIndexBuffer(
 		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 	);
 
-	stagingIndexBuffer.map(indices.data(), indexBufferSize);
+	stagingIndexBuffer.write(
+		indices.data(), 
+		indexBufferSize,
+		0
+	);
 
 	indexBuffer = std::make_unique<Buffer>(
 		ctxt,
@@ -623,12 +750,34 @@ void SpriteRenderer::createInstanceBuffer(
 		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 	);
 
-	instanceBuffer->map(
+	instanceBuffer->write(
 		instances.data(),
-		bufferSize
+		bufferSize,
+		0
 	);
 
 	instanceCount = static_cast<uint32_t>(instances.size());
 	//std::cout << instanceCount << std::endl;
+}
+
+void SpriteRenderer::createAtlasBuffer(
+	//const std::vector<SpriteUV>& 
+) {
+	const VkDeviceSize bufferSize =
+		atlasSprites.size() * sizeof(SpriteUV);
+
+	atlasBuffer = std::make_unique<Buffer>(
+		ctxt,
+		bufferSize,
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+			| VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+	);
+
+	atlasBuffer->write(
+		atlasSprites.data(),
+		bufferSize,
+		0
+	);
 }
 

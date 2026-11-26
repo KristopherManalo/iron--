@@ -11,6 +11,7 @@
 #include "resources/Texture.h"
 #include "types/Vertex.h"
 #include "types/SpriteInstance.h"
+#include "types/SpriteUV.h"
 
 #include <memory>
 
@@ -28,7 +29,11 @@ public:
 
 	/// @brief Initializes any necesarry 
 	/// class variables
-	void initialize();
+	void initialize(
+		const std::array<std::unique_ptr<Buffer>, 
+			VkContext::MAX_FRAMES_IN_FLIGHT>&
+			uniformBuffers
+	);
 
 	/// @brief Cleans any class variables
 	void cleanup();
@@ -36,23 +41,36 @@ public:
 	/// @brief Puts commands to draw
 	/// into command buffer.
 	/// @param commandBuffer Buffer to put commands
-	void draw(VkCommandBuffer);
+	void draw(
+		VkCommandBuffer commandBuffer,
+		uint32_t currentFrame
+	);
 private:
+	const std::vector<SpriteUV> atlasSprites = {
+	{ { 0.025f, 0.025f },{ 0.475f, 0.475f } },
+	{ { 0.525f, 0.025f },{ 0.975f, 0.475f } },
+	{ { 0.025f, 0.525f },{ 0.475f, 0.975f } },
+	{ { 0.525f, 0.525f },{ 0.975f, 0.975f } }
+	};
+
 	VkContext& ctxt;
 	RenderPassManager& rpm;
+
 
 	VkPipeline graphicsPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 
 	VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
 	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
-	VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+	//VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+	std::array<VkDescriptorSet, VkContext::MAX_FRAMES_IN_FLIGHT> descriptorSets;
 
 	std::unique_ptr<Buffer> vertexBuffer;
 	std::unique_ptr<Buffer> indexBuffer;
 	uint32_t indexCount = 0;
 	std::unique_ptr<Buffer> instanceBuffer;
 	uint32_t instanceCount = 0;
+	std::unique_ptr<Buffer> atlasBuffer;
 
 	std::unique_ptr<Texture> texture;
 
@@ -61,7 +79,10 @@ private:
 
 	void createDescriptorSetLayout();
 	void createDescriptorPool();
-	void createDescriptorSets();
+	void createDescriptorSets(
+		const std::array<std::unique_ptr<Buffer>, 
+			VkContext::MAX_FRAMES_IN_FLIGHT>&
+	);
 
 	void copyBuffer(
 		VkBuffer srcBuffer,
@@ -79,5 +100,9 @@ private:
 
 	void createInstanceBuffer(
 		const std::vector<SpriteInstance>&
+	);
+
+	void createAtlasBuffer(
+		//const std::vector<SpriteUV>&
 	);
 };

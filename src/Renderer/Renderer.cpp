@@ -1,8 +1,11 @@
 #include "Renderer.h"
 #include <stdexcept>
 #include <iostream>
+#include <chrono>
+#include "scene/Camera.h"
 
 Renderer::Renderer() :
+	camera(16.0f, 9.0f),
 	triangleRenderer(ctxt, renderPassManager),
 	spriteRenderer(ctxt, renderPassManager) {
 }
@@ -25,8 +28,12 @@ void Renderer::initialize(const char progName[]) {
 		VK_NULL_HANDLE
 	);
 
+	createUniformBuffers();
+
 	triangleRenderer.initialize();
-	spriteRenderer.initialize();
+	spriteRenderer.initialize(
+		uniformBuffers
+	);
 }
 
 void Renderer::cleanup() {
@@ -35,6 +42,7 @@ void Renderer::cleanup() {
 	}
 	spriteRenderer.cleanup();
 	triangleRenderer.cleanup();
+	cleanupUniformBuffers();
 	cleanupFramebuffers();
 	renderPassManager.cleanup();
 	ctxt.cleanup();
@@ -202,6 +210,7 @@ void Renderer::drawFrame(
 		);
 	}
 
+	updateUniformBuffer(currentFrame);
 
 	// Record rendering commands
 	recordCommandBuffer(
@@ -323,7 +332,7 @@ void Renderer::recordCommandBuffer(
 	// Future:
 	// meshRenderer.draw(commandBuffer);
 	triangleRenderer.draw(commandBuffer);
-	spriteRenderer.draw(commandBuffer);
+	spriteRenderer.draw(commandBuffer, currentFrame);
 
 	vkCmdEndRenderPass(commandBuffer);
 
@@ -333,6 +342,39 @@ void Renderer::recordCommandBuffer(
 		);
 	}
 }
+
+void Renderer::createUniformBuffers() {
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+		uniformBuffers[i] = std::make_unique<Buffer>(
+			ctxt,
+			sizeof(CameraUBO),
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+				| VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+		);
+	};
+}
+void Renderer::updateUniformBuffer(
+	uint32_t currentFrame
+) {
+	CameraUBO ubo{};
+	
+	ubo.view = camera.getViewMatrix();
+	ubo.projection = camera.getProjectionMatrix();
+
+
+	uniformBuffers[currentFrame]->write(
+		&ubo,
+		sizeof(ubo),
+		0
+	);
+}
+void Renderer::cleanupUniformBuffers() {
+	for (auto& buffer : uniformBuffers) {
+		buffer.reset();
+	}
+}
+
 
 void Renderer::initWindow(const char progName[]) {
 	if (glfwInit() != GLFW_TRUE) {
@@ -363,3 +405,4 @@ void Renderer::cleanupWindow() {
 	window.reset();
 	glfwTerminate();
 }
+

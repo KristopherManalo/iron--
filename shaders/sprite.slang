@@ -18,6 +18,9 @@ struct vIn {
 
     [[vk::location(5)]]
     float4 instanceTint;
+
+    [[vk::location(6)]]
+    uint spriteIndex;
 };
 
 struct vOut {
@@ -30,8 +33,24 @@ struct vOut {
     float4 tint : COLOR0;
 };
 
+struct CameraUBO {
+    float4x4 view;
+    float4x4 projection;
+};
+
+struct SpriteUV {
+    float2 minUV;
+    float2 maxUV;
+};
+
 [[vk::binding(0, 0)]]
 Sampler2D spriteTexture;
+
+[[vk::binding(1, 0)]]
+ConstantBuffer<CameraUBO> camera;
+
+[[vk::binding(2, 0)]]
+StructuredBuffer<SpriteUV> atlasSprites;
 
 float2 rotate2D(float2 position, float angle) {
     float s = sin(angle);
@@ -60,9 +79,20 @@ vOut vertexMain(vIn input) {
         input.instancePosition.z
     );
 
-    output.position = float4(worldPosition, 1.0);
-    output.texCoord = input.texCoord;
+    float4 position = float4(worldPosition, 1.0);
+
+    output.position = mul(
+        camera.projection,
+        mul(camera.view, position)
+    );
     output.tint = input.instanceTint;
+
+    SpriteUV sprite = atlasSprites[input.spriteIndex];
+    output.texCoord = lerp(
+        sprite.minUV,
+        sprite.maxUV,
+        input.texCoord
+    );
 
     return output;
 };
