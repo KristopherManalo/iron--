@@ -11,7 +11,7 @@
 #include "resources/Texture.h"
 #include "types/Vertex.h"
 #include "types/SpriteInstance.h"
-#include "types/SpriteUV.h"
+#include "types/SpriteSheet.h"
 
 #include <memory>
 
@@ -45,16 +45,39 @@ public:
 		VkCommandBuffer commandBuffer,
 		uint32_t currentFrame
 	);
-private:
-	const std::vector<SpriteUV> atlasSprites = {
-	{ { 0.025f, 0.025f },{ 0.475f, 0.475f } },
-	{ { 0.525f, 0.025f },{ 0.975f, 0.475f } },
-	{ { 0.025f, 0.525f },{ 0.475f, 0.975f } },
-	{ { 0.525f, 0.525f },{ 0.975f, 0.975f } }
-	};
 
+	//void draw(
+	//	VkCommandBuffer commandBuffer,
+	//	uint32_t currentFrame,
+	//	const std::vector<std::vector<SpriteInstance>>& batches
+	//);
+
+	uint32_t loadSpriteSheet(
+		const std::string& texturePath,
+		const std::vector<SpriteUV>& sprites
+	);
+
+	void updateInstanceBuffers(
+		uint32_t currentFrame
+	);
+private:
+	
 	VkContext& ctxt;
 	RenderPassManager& rpm;
+
+	static constexpr std::array<Vertex, 4> vertices{ {
+		{ { -0.5f, -0.5f },{ 0.0f, 0.0f } },
+		{ { 0.5f, -0.5f },{ 1.0f, 0.0f } },
+		{ { 0.5f,  0.5f },{ 1.0f, 1.0f } },
+		{ { -0.5f,  0.5f },{ 0.0f, 1.0f } }
+	} };
+
+	static constexpr std::array<uint16_t, 6> indices = {
+		0, 1, 2,
+		2, 3, 0
+	};
+	static constexpr VkDeviceSize bufferSize = sizeof(indices);
+
 
 
 	VkPipeline graphicsPipeline = VK_NULL_HANDLE;
@@ -63,16 +86,31 @@ private:
 	VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
 	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
 	//VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
-	std::array<VkDescriptorSet, VkContext::MAX_FRAMES_IN_FLIGHT> descriptorSets;
+	//std::array<VkDescriptorSet, VkContext::MAX_FRAMES_IN_FLIGHT> descriptorSets;
+	std::vector<
+		std::array<
+		VkDescriptorSet,
+		VkContext::MAX_FRAMES_IN_FLIGHT
+		>
+	> descriptorSets;
 
 	std::unique_ptr<Buffer> vertexBuffer;
 	std::unique_ptr<Buffer> indexBuffer;
 	uint32_t indexCount = 0;
 	std::unique_ptr<Buffer> instanceBuffer;
+	std::vector<std::array<
+		std::unique_ptr<Buffer>,
+		VkContext::MAX_FRAMES_IN_FLIGHT
+	>> instanceBuffers;
 	uint32_t instanceCount = 0;
-	std::unique_ptr<Buffer> atlasBuffer;
+	//std::unique_ptr<Buffer> atlasBuffer;
 
 	std::unique_ptr<Texture> texture;
+
+	std::vector<std::unique_ptr<SpriteSheet>> spriteSheets;
+
+	std::vector<std::vector<SpriteInstance>> instanceBatches;
+
 
 	void createPipelineLayout();
 	void createGraphicsPipeline();
@@ -93,16 +131,20 @@ private:
 	void createVertexBuffer(
 		const std::vector<Vertex>&
 	);
-
 	void createIndexBuffer(
 		const std::vector<uint16_t>&
 	);
+	void createVertexBuffer();
+	void createIndexBuffer();
 
 	void createInstanceBuffer(
 		const std::vector<SpriteInstance>&
 	);
 
-	void createAtlasBuffer(
-		//const std::vector<SpriteUV>&
-	);
+	void createInstanceBuffers();
+
+
+	//void createAtlasBuffer(
+	//	const std::vector<SpriteUV>&
+	//);
 };

@@ -6,6 +6,11 @@
 #include <array>
 #include <cstddef>
 
+struct SpriteId {
+	uint32_t sheetIndex;
+	uint32_t spriteIndex;
+};
+
 struct SpriteInstance {
 	glm::vec3 position;
 	glm::vec2 scale;

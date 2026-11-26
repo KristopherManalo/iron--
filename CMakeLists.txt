@@ -25,7 +25,9 @@ add_executable(iron--
     src/types/Vertex.h
     src/types/SpriteInstance.h
     src/types/CameraUBO.h
-    src/types/SpriteUV.h
+    src/types/SpriteSheet.h
+    src/types/SpriteSheet.cpp
+    
 
     src/resources/Buffer.h
     src/resources/Buffer.cpp

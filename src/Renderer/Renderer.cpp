@@ -31,6 +31,18 @@ void Renderer::initialize(const char progName[]) {
 	createUniformBuffers();
 
 	triangleRenderer.initialize();
+
+	const std::vector<SpriteUV> atlasSprites = {
+		{ { 0.025f, 0.025f },{ 0.475f, 0.475f } },
+		{ { 0.525f, 0.025f },{ 0.975f, 0.475f } },
+		{ { 0.025f, 0.525f },{ 0.475f, 0.975f } },
+		{ { 0.525f, 0.525f },{ 0.975f, 0.975f } }
+	};
+
+	spriteRenderer.loadSpriteSheet(
+		"assets/sprites/test.png",
+		atlasSprites
+	);
 	spriteRenderer.initialize(
 		uniformBuffers
 	);
@@ -211,6 +223,8 @@ void Renderer::drawFrame(
 	}
 
 	updateUniformBuffer(currentFrame);
+	
+	spriteRenderer.updateInstanceBuffers(currentFrame);
 
 	// Record rendering commands
 	recordCommandBuffer(
