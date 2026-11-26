@@ -285,7 +285,7 @@ void SpriteRenderer::createGraphicsPipeline() {
 #else
 		.cullMode = VK_CULL_MODE_NONE,
 #endif // NDEBUG
-		.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+		.frontFace = VK_FRONT_FACE_CLOCKWISE,
 		.depthBiasEnable = VK_FALSE,
 		.depthBiasConstantFactor = 0.0f,
 		.depthBiasClamp = 0.0f,
