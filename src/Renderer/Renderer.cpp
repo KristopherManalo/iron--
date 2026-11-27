@@ -1,8 +1,11 @@
 #include "Renderer.h"
 #include <stdexcept>
 #include <iostream>
+#include <chrono>
+#include "scene/Camera.h"
 
 Renderer::Renderer() :
+	camera(16.0f, 9.0f),
 	triangleRenderer(ctxt, renderPassManager),
 	spriteRenderer(ctxt, renderPassManager) {
 }
@@ -25,8 +28,61 @@ void Renderer::initialize(const char progName[]) {
 		VK_NULL_HANDLE
 	);
 
+	createUniformBuffers();
+
 	triangleRenderer.initialize();
-	spriteRenderer.initialize();
+
+	const std::vector<SpriteUV> atlasSprites = {
+		{ { 0.025f, 0.025f },{ 0.475f, 0.475f } },
+		{ { 0.525f, 0.025f },{ 0.975f, 0.475f } },
+		{ { 0.025f, 0.525f },{ 0.475f, 0.975f } },
+		{ { 0.525f, 0.525f },{ 0.975f, 0.975f } }
+	};
+
+	uint32_t temp_sheet
+		= spriteRenderer.loadSpriteSheet(
+		"assets/sprites/test.png",
+		atlasSprites
+	);
+	spriteRenderer.initialize(
+		uniformBuffers
+	);
+	std::vector<SpriteInstance> instances;
+	constexpr uint32_t columns = 10;
+	constexpr uint32_t rows = 10;
+	constexpr float spacing = 0.5f;
+
+	const std::vector<glm::vec4> tints = {
+		{ 1.0f, 0.5f, 0.5f, 1.0f }, // Pink
+		{ 0.5f, 1.0f, 0.5f, 1.0f }, // Green
+		{ 0.5f, 0.5f, 1.0f, 1.0f }, // Blue
+		{ 1.0f, 1.0f, 0.5f, 1.0f }, // Yellow
+		{ 1.0f, 0.5f, 1.0f, 1.0f }, // Purple
+		{ 0.5f, 1.0f, 1.0f, 1.0f }, // Cyan
+	};
+
+	//instances.reserve(columns * rows);
+
+	for (uint32_t y = 0; y < rows; ++y) {
+		for (uint32_t x = 0; x < columns; ++x) {
+			uint32_t index = y * columns + x;
+
+			glm::vec4 tint = index < 4
+				? glm::vec4(1.0f)
+				: tints[(index - 4) % tints.size()];
+
+			spriteRenderer.addSprite(
+				temp_sheet,
+				{
+					{ 4.0f + x * spacing, 1.0f + y * spacing, 0.5f },
+					{ 0.5f, 0.5f },
+					0.0f,
+					tint,
+					index % 4
+				}
+			);
+		}
+	}
 }
 
 void Renderer::cleanup() {
@@ -35,6 +91,7 @@ void Renderer::cleanup() {
 	}
 	spriteRenderer.cleanup();
 	triangleRenderer.cleanup();
+	cleanupUniformBuffers();
 	cleanupFramebuffers();
 	renderPassManager.cleanup();
 	ctxt.cleanup();
@@ -202,6 +259,9 @@ void Renderer::drawFrame(
 		);
 	}
 
+	updateUniformBuffer(currentFrame);
+	
+	spriteRenderer.updateInstanceBuffers(currentFrame);
 
 	// Record rendering commands
 	recordCommandBuffer(
@@ -323,7 +383,7 @@ void Renderer::recordCommandBuffer(
 	// Future:
 	// meshRenderer.draw(commandBuffer);
 	triangleRenderer.draw(commandBuffer);
-	spriteRenderer.draw(commandBuffer);
+	spriteRenderer.draw(commandBuffer, currentFrame);
 
 	vkCmdEndRenderPass(commandBuffer);
 
@@ -333,6 +393,39 @@ void Renderer::recordCommandBuffer(
 		);
 	}
 }
+
+void Renderer::createUniformBuffers() {
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+		uniformBuffers[i] = std::make_unique<Buffer>(
+			ctxt,
+			sizeof(CameraUBO),
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+				| VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+		);
+	};
+}
+void Renderer::updateUniformBuffer(
+	uint32_t currentFrame
+) {
+	CameraUBO ubo{};
+	
+	ubo.view = camera.getViewMatrix();
+	ubo.projection = camera.getProjectionMatrix();
+
+
+	uniformBuffers[currentFrame]->write(
+		&ubo,
+		sizeof(ubo),
+		0
+	);
+}
+void Renderer::cleanupUniformBuffers() {
+	for (auto& buffer : uniformBuffers) {
+		buffer.reset();
+	}
+}
+
 
 void Renderer::initWindow(const char progName[]) {
 	if (glfwInit() != GLFW_TRUE) {
@@ -363,3 +456,4 @@ void Renderer::cleanupWindow() {
 	window.reset();
 	glfwTerminate();
 }
+

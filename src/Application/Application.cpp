@@ -59,16 +59,16 @@ void Application::mainLoop() {
 #define getkeypress(key) (glfwGetKey(renderer.getWindow(), key) == GLFW_PRESS)
         if (getkeypress(GLFW_KEY_SPACE)) break;
         if (getkeypress(GLFW_KEY_W)) {
-            std::cout << "HOLDING W :3" << std::endl;
+            renderer.camera.position.y += 0.01;
         }
         if (getkeypress(GLFW_KEY_A)) {
-            std::cout << "HOLDING A :3" << std::endl;
+            renderer.camera.position.x -= 0.01;
         }
         if (getkeypress(GLFW_KEY_S)) {
-            std::cout << "HOLDING S :3" << std::endl;
+            renderer.camera.position.y -= 0.01;
         }
         if (getkeypress(GLFW_KEY_D)) {
-            std::cout << "HOLDING D :3" << std::endl;
+            renderer.camera.position.x += 0.01;
         }
 
 #ifndef NDEBUG

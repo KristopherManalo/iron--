@@ -55,7 +55,7 @@ void Texture::load(const std::string& path) {
             | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
         );
 
-        stagingBuffer.map(pixels, imageSize);
+        stagingBuffer.write(pixels, imageSize, 0);
 
         image = std::make_unique<Image>(
             ctxt,

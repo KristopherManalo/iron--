@@ -19,16 +19,29 @@ public:
 
 	~Buffer();
 
+	Buffer(const Buffer&) = delete;
+	Buffer& operator=(const Buffer&) = delete;
+
 	void cleanup();
 
-	void map(
+	//void map(
+	//	const void* data,
+	//	VkDeviceSize size
+	//);
+
+	void write(
 		const void* data,
-		VkDeviceSize size
+		VkDeviceSize size,
+		VkDeviceSize offset
 	);
 
 	VkBuffer get() const;
 private:
 	VkContext &ctxt;
+
 	VkBuffer buffer = VK_NULL_HANDLE;
 	VkDeviceMemory memory = VK_NULL_HANDLE;
+
+	void* mapped = nullptr;
+	VkDeviceSize bufferSize = 0;
 };

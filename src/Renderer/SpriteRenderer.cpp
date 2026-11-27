@@ -6,6 +6,7 @@
 
 #include "types/Vertex.h"
 #include "types/SpriteInstance.h"
+#include "types/CameraUBO.h"
 
 SpriteRenderer::SpriteRenderer(
 	VkContext& ctxt,
@@ -13,44 +14,21 @@ SpriteRenderer::SpriteRenderer(
 ) : ctxt(ctxt), rpm(rpm) {
 }
 
-void SpriteRenderer::initialize() {
-	const std::vector<Vertex> vertices = {
-		{ { -0.5f, -0.5f },	{ 0.0f, 0.0f } },
-		{ { 0.5f, -0.5f	},	{ 1.0f, 0.0f } },
-		{ { 0.5f,  0.5f },	{ 1.0f, 1.0f } },
-		{ { -0.5f,  0.5f },	{ 0.0f, 1.0f } }
-	};
+void SpriteRenderer::initialize(
+	const std::array<std::unique_ptr<Buffer>, 
+		VkContext::MAX_FRAMES_IN_FLIGHT>& 
+		uniformBuffers
+) {
+	createVertexBuffer();
+	createIndexBuffer();
 
-	const std::vector<uint16_t> indices = {
-		0, 1, 2,
-		2, 3, 0
-	};
-	indexCount = static_cast<uint32_t>(indices.size());
-	
-	std::vector<SpriteInstance> instances = {
-	{ { 0.0f,  0.0f, 0.5f },{ 0.5f, 0.5f }, 0.0f,{ 1,1,1,1 } },
-	{ { 0.5f,  0.0f, 0.5f },{ 0.5f, 0.5f }, 0.0f,{ 1,0,0,1 } },
-	{ { -0.5f,  0.0f, 0.5f },{ 0.5f, 0.5f }, 0.0f,{ 0,1,0,1 } },
-	{ { 0.0f,  0.5f, 0.5f },{ 0.5f, 0.5f }, 0.0f,{ 0,0,1,1 } },
-	{ { 0.0f, -0.5f, 0.5f },{ 0.5f, 0.5f }, 0.0f,{ 1,1,0,1 } }
-	};
-
-
-	createVertexBuffer(vertices);
-
-	createIndexBuffer(indices);
-
-	createInstanceBuffer(instances);
-
-	// Texture and pipeline setup
-	texture = std::make_unique<Texture>(
-		ctxt,
-		"assets/mambo.png"
-	);
+	createInstanceBuffers();
 
 	createDescriptorSetLayout();
 	createDescriptorPool();
-	createDescriptorSets();
+	createDescriptorSets(
+		uniformBuffers
+	);
 
 	createPipelineLayout();
 	createGraphicsPipeline();
@@ -58,10 +36,8 @@ void SpriteRenderer::initialize() {
 
 void SpriteRenderer::cleanup() {
 	VkDevice device = ctxt.getDevice();
-	if (device == VK_NULL_HANDLE) {
-		return;
-	}
 
+	// Graphics pipeline resources
 	if (graphicsPipeline != VK_NULL_HANDLE) {
 		vkDestroyPipeline(device, graphicsPipeline, nullptr);
 		graphicsPipeline = VK_NULL_HANDLE;
@@ -72,28 +48,40 @@ void SpriteRenderer::cleanup() {
 		pipelineLayout = VK_NULL_HANDLE;
 	}
 
+	// Descriptor resources
 	if (descriptorPool != VK_NULL_HANDLE) {
 		vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 		descriptorPool = VK_NULL_HANDLE;
-		descriptorSet = VK_NULL_HANDLE;
 	}
+
+	descriptorSets.clear();
 
 	if (descriptorSetLayout != VK_NULL_HANDLE) {
 		vkDestroyDescriptorSetLayout(
-			device, descriptorSetLayout, nullptr
+			device,
+			descriptorSetLayout,
+			nullptr
 		);
 		descriptorSetLayout = VK_NULL_HANDLE;
 	}
 
-	texture.reset();
+	// Per-sheet instance buffers
+	instanceBuffers.clear();
 
+	// CPU-side instance batches
+	instanceBatches.clear();
+
+	// Sprite sheets (textures and atlas buffers)
+	spriteSheets.clear();
+
+	// Shared geometry buffers
 	vertexBuffer.reset();
 	indexBuffer.reset();
-	instanceBuffer.reset();
 }
 
 void SpriteRenderer::draw(
-	VkCommandBuffer commandBuffer
+	VkCommandBuffer commandBuffer,
+	uint32_t currentFrame
 ) {
 	vkCmdBindPipeline(
 		commandBuffer,
@@ -101,66 +89,93 @@ void SpriteRenderer::draw(
 		graphicsPipeline
 	);
 
-	vkCmdBindDescriptorSets(
-		commandBuffer,
-		VK_PIPELINE_BIND_POINT_GRAPHICS,
-		pipelineLayout,
-		0,
-		1,
-		&descriptorSet,
-		0,
-		nullptr
-	);
-
-	VkViewport viewport{
-		.x = 0.0f,
-		.y = 0.0f,
-		.width = static_cast<float>(ctxt.getSwapChainExtent().width),
-		.height = static_cast<float>(ctxt.getSwapChainExtent().height),
-		.minDepth = 0.0f,
-		.maxDepth = 1.0f,
-	};
-
-	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-	VkRect2D scissor{
-		.offset = { 0, 0 },
-		.extent = ctxt.getSwapChainExtent(),
-	};
-
-	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-	VkBuffer buffers[] = {
+	VkBuffer vertexBuffers[] = {
 		vertexBuffer->get(),
-		instanceBuffer->get()
+		nullptr
 	};
 
 	VkDeviceSize offsets[] = { 0, 0 };
 
-	vkCmdBindVertexBuffers(
-		commandBuffer,
-		0,
-		2,
-		buffers,
-		offsets
-	);
+	for (size_t sheetIndex = 0;
+		sheetIndex < spriteSheets.size();
+		++sheetIndex) {
+		
+		auto& batch = instanceBatches[sheetIndex];
 
-	vkCmdBindIndexBuffer(
-		commandBuffer,
-		indexBuffer->get(),
-		0,
-		VK_INDEX_TYPE_UINT16
-	);
-	
+		// if sheet has no sprites
+		if (batch.empty()) {
+			continue;
+		}
 
-	vkCmdDrawIndexed(
-		commandBuffer,
-		indexCount,
-		instanceCount,
-		0,
-		0,
-		0
+		// Bind the sheet's descriptor set for current frame
+		VkDescriptorSet descriptorSet =
+			descriptorSets[sheetIndex][currentFrame];
+
+		vkCmdBindDescriptorSets(
+			commandBuffer,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			pipelineLayout,
+			0,
+			1,
+			&descriptorSet,
+			0,
+			nullptr
+		);
+
+		// Bind this sheet's instance buffer.
+		vertexBuffers[1] =
+			instanceBuffers[sheetIndex][currentFrame]->get();
+
+		vkCmdBindVertexBuffers(
+			commandBuffer,
+			0,
+			2,
+			vertexBuffers,
+			offsets
+		);
+
+		vkCmdBindIndexBuffer(
+			commandBuffer,
+			indexBuffer->get(),
+			0,
+			VK_INDEX_TYPE_UINT16
+		);
+
+		vkCmdDrawIndexed(
+			commandBuffer,
+			6,
+			static_cast<uint32_t>(batch.size()),
+			0,
+			0,
+			0
+		);
+	}
+}
+
+uint32_t SpriteRenderer::loadSpriteSheet(
+	const std::string& texturePath,
+	const std::vector<SpriteUV>& sprites
+) {
+	spriteSheets.push_back(
+		std::make_unique<SpriteSheet>(
+			ctxt,
+			texturePath,
+			sprites
+		)
 	);
+	instanceBatches.emplace_back();
+	return static_cast<uint32_t>(spriteSheets.size() - 1);
+}
+
+SpriteID SpriteRenderer::addSprite(
+	uint32_t sheetIndex,
+	const SpriteInstance& instance
+) {
+	instanceBatches[sheetIndex].push_back(instance);
+	return SpriteID{ 
+		sheetIndex,
+		static_cast<uint32_t>(instanceBatches[sheetIndex].size() - 1)
+	};
 }
 
 void SpriteRenderer::createPipelineLayout() {
@@ -218,7 +233,8 @@ void SpriteRenderer::createGraphicsPipeline() {
 	};
 
 #pragma region Create attribute descriptions
-	std::array<VkVertexInputAttributeDescription, 6>
+	std::array<VkVertexInputAttributeDescription, 
+		Vertex::ATTRIBUTE_COUNT + SpriteInstance::ATTRIBUTE_COUNT>
 		attributeDescriptions;
 
 	auto vertexAttributes = Vertex::getAttributeDescriptions();
@@ -269,7 +285,7 @@ void SpriteRenderer::createGraphicsPipeline() {
 #else
 		.cullMode = VK_CULL_MODE_NONE,
 #endif // NDEBUG
-		.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+		.frontFace = VK_FRONT_FACE_CLOCKWISE,
 		.depthBiasEnable = VK_FALSE,
 		.depthBiasConstantFactor = 0.0f,
 		.depthBiasClamp = 0.0f,
@@ -376,8 +392,25 @@ void SpriteRenderer::createDescriptorSetLayout() {
 		.pImmutableSamplers = nullptr,
 	};
 
-	std::array<VkDescriptorSetLayoutBinding, 1> bindings = {
-		spriteTexture
+	VkDescriptorSetLayoutBinding cameraUBO{
+		.binding = 1,
+		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT
+	};
+
+	VkDescriptorSetLayoutBinding atlasBinding{
+		.binding = 2,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+		.pImmutableSamplers = nullptr
+	};
+
+	std::array<VkDescriptorSetLayoutBinding, 3> bindings = {
+		spriteTexture,
+		cameraUBO,
+		atlasBinding
 	};
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo{
@@ -397,11 +430,21 @@ void SpriteRenderer::createDescriptorSetLayout() {
 }
 
 void SpriteRenderer::createDescriptorPool() {
-	std::array<VkDescriptorPoolSize, 1> poolSizes{
+	std::array<VkDescriptorPoolSize, 3> poolSizes{
+		// Sprite texture descriptors
 		VkDescriptorPoolSize{
 			.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			.descriptorCount = 1,
+			.descriptorCount = static_cast<uint32_t>(ctxt.MAX_FRAMES_IN_FLIGHT),
 		},
+		// Camera UBO descriptors
+		VkDescriptorPoolSize{
+			.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.descriptorCount = static_cast<uint32_t>(ctxt.MAX_FRAMES_IN_FLIGHT),
+		},
+		VkDescriptorPoolSize{
+			.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = static_cast<uint32_t>(ctxt.MAX_FRAMES_IN_FLIGHT),
+		}
 	};
 
 	VkDescriptorPoolCreateInfo poolInfo{
@@ -420,45 +463,121 @@ void SpriteRenderer::createDescriptorPool() {
 	}
 }
 
-void SpriteRenderer::createDescriptorSets() {
+void SpriteRenderer::createDescriptorSets(
+	const std::array<std::unique_ptr<Buffer>, 
+		VkContext::MAX_FRAMES_IN_FLIGHT>&
+		uniformBuffers
+) {
+	const size_t sheetCount = spriteSheets.size();
+
+	descriptorSets.resize(sheetCount);
+
+	//layouts.fill(descriptorSetLayout);
+	std::vector<VkDescriptorSetLayout> layouts(
+		sheetCount * VkContext::MAX_FRAMES_IN_FLIGHT,
+		descriptorSetLayout
+	);
+
+	std::vector<VkDescriptorSet> allocatedSets(layouts.size());
+
 	VkDescriptorSetAllocateInfo allocInfo{
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
 		.descriptorPool = descriptorPool,
-		.descriptorSetCount = 1,
-		.pSetLayouts = &descriptorSetLayout
+		.descriptorSetCount = static_cast<uint32_t>(layouts.size()),
+		.pSetLayouts = layouts.data()
 	};
 
 	if (vkAllocateDescriptorSets(
 		ctxt.getDevice(),
 		&allocInfo,
-		&descriptorSet
+		allocatedSets.data()
 	) != VK_SUCCESS) {
 		throw std::runtime_error("Failed to allocate desscriptor sets");
 	}
 
-	VkDescriptorImageInfo imageInfo{
-		.sampler = texture->getSampler(),
-		.imageView = texture->getImageView(),
-		.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-	};
+	// Distributes allocated sets into [sheet][frame]
+	for (size_t sheetIndex = 0;
+		sheetIndex < sheetCount; ++sheetIndex) {
+		for (size_t frame = 0;
+			frame < VkContext::MAX_FRAMES_IN_FLIGHT;
+			++frame) {
+			descriptorSets[sheetIndex][frame] =
+				allocatedSets[
+					sheetIndex * VkContext::MAX_FRAMES_IN_FLIGHT + frame
+				];
+		}
+	}
 
-	VkWriteDescriptorSet descriptorWrite{
-		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-		.dstSet = descriptorSet,
-		.dstBinding = 0,
-		.dstArrayElement = 0,
-		.descriptorCount = 1,
-		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		.pImageInfo = &imageInfo,
-	};
-	
-	vkUpdateDescriptorSets(
-		ctxt.getDevice(),
-		1,
-		&descriptorWrite,
-		0,
-		nullptr
-	);
+	for (size_t sheetIndex = 0; 
+		sheetIndex < sheetCount; 
+		++sheetIndex) {
+		SpriteSheet& sheet = *spriteSheets[sheetIndex];
+
+		VkDescriptorImageInfo imageInfo{
+			.sampler = sheet.getTexture().getSampler(),
+			.imageView = sheet.getTexture().getImageView(),
+			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		};
+
+		VkDescriptorBufferInfo atlasInfo{
+			.buffer = sheet.getAtlasBuffer().get(),
+			.offset = 0,
+			.range = sheet.getAtlasBufferSize()
+		};
+
+		for (size_t frame = 0;
+			frame < VkContext::MAX_FRAMES_IN_FLIGHT;
+			++frame) {
+			VkDescriptorBufferInfo cameraInfo{
+				.buffer = uniformBuffers[frame]->get(),
+				.offset = 0,
+				.range = sizeof(CameraUBO)
+			};
+
+			VkDescriptorSet descriptorSet
+				= descriptorSets[sheetIndex][frame];
+
+			std::array<VkWriteDescriptorSet, 3> writes{};
+
+			// Sprite texture
+			writes[0] = {
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = descriptorSet,
+				.dstBinding = 0,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				.pImageInfo = &imageInfo
+			};
+
+			// Camera UBO
+			writes[1] = {
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = descriptorSet,
+				.dstBinding = 1,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				.pBufferInfo = &cameraInfo,
+			};
+
+			// Sprite atlas metadata
+			writes[2] = {
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = descriptorSet,
+				.dstBinding = 2,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+				.pBufferInfo = &atlasInfo
+			};
+
+			vkUpdateDescriptorSets(
+				ctxt.getDevice(),
+				static_cast<uint32_t>(writes.size()),
+				writes.data(),
+				0,
+				nullptr
+			);
+		}
+	}
 }
 
 void SpriteRenderer::copyBuffer(
@@ -560,7 +679,11 @@ void SpriteRenderer::createVertexBuffer(
 		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 	);
 
-	stagingVertexBuffer.map(vertices.data(), vertexBufferSize);
+	stagingVertexBuffer.write(
+		vertices.data(), 
+		vertexBufferSize,
+		0
+	);
 
 	vertexBuffer = std::make_unique<Buffer>(
 		ctxt,
@@ -592,7 +715,11 @@ void SpriteRenderer::createIndexBuffer(
 		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 	);
 
-	stagingIndexBuffer.map(indices.data(), indexBufferSize);
+	stagingIndexBuffer.write(
+		indices.data(), 
+		indexBufferSize,
+		0
+	);
 
 	indexBuffer = std::make_unique<Buffer>(
 		ctxt,
@@ -606,6 +733,42 @@ void SpriteRenderer::createIndexBuffer(
 		stagingIndexBuffer.get(),
 		indexBuffer->get(),
 		indexBufferSize
+	);
+}
+
+void SpriteRenderer::createVertexBuffer() {
+	constexpr VkDeviceSize bufferSize = sizeof(vertices);
+
+	vertexBuffer = std::make_unique<Buffer>(
+		ctxt,
+		bufferSize,
+		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+	);
+
+	vertexBuffer->write(
+		vertices.data(),
+		bufferSize,
+		0
+	);
+}
+
+void SpriteRenderer::createIndexBuffer() {
+	constexpr VkDeviceSize bufferSize = sizeof(indices);
+
+	indexBuffer = std::make_unique<Buffer>(
+		ctxt,
+		bufferSize,
+		VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+	);
+
+	indexBuffer->write(
+		indices.data(),
+		bufferSize,
+		0
 	);
 }
 
@@ -623,12 +786,52 @@ void SpriteRenderer::createInstanceBuffer(
 		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 	);
 
-	instanceBuffer->map(
+	instanceBuffer->write(
 		instances.data(),
-		bufferSize
+		bufferSize,
+		0
 	);
 
 	instanceCount = static_cast<uint32_t>(instances.size());
 	//std::cout << instanceCount << std::endl;
+}
+
+void SpriteRenderer::createInstanceBuffers() {
+	instanceBuffers.resize(spriteSheets.size());
+
+	for (size_t sheet = 0; sheet < spriteSheets.size(); ++sheet) {
+		for (size_t frame = 0;
+			frame < VkContext::MAX_FRAMES_IN_FLIGHT;
+			++frame) {
+
+			instanceBuffers[sheet][frame] =
+				std::make_unique<Buffer>(
+					ctxt,
+					spriteSheets[sheet]->getMaxInstances() 
+						* sizeof(SpriteInstance),
+					VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+					VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+					VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+				);
+		}
+	}
+}
+
+void SpriteRenderer::updateInstanceBuffers(
+	uint32_t currentFrame
+) {
+	for (size_t i = 0; i < instanceBatches.size(); ++i) {
+		auto& batch = instanceBatches[i];
+
+		if (batch.empty()) {
+			continue;
+		}
+
+		instanceBuffers[i][currentFrame]->write(
+			batch.data(),
+			batch.size() * sizeof(SpriteInstance),
+			0
+		);
+	}
 }
 

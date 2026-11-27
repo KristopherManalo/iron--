@@ -19,8 +19,15 @@ add_executable(iron--
     src/Vulkan/VkContext.h
     src/Vulkan/VkContext.cpp
 
+    src/scene/Camera.h
+    src/scene/Camera.cpp
+
     src/types/Vertex.h
     src/types/SpriteInstance.h
+    src/types/CameraUBO.h
+    src/types/SpriteSheet.h
+    src/types/SpriteSheet.cpp
+    
 
     src/resources/Buffer.h
     src/resources/Buffer.cpp
