@@ -4,6 +4,7 @@
 #include <set>
 #include <algorithm>
 #include <cstring>
+#include <limits>
 
 #include "config.h"
 
