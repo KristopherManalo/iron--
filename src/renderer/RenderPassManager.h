@@ -3,7 +3,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <glfw/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_WIN32
-#include <glfw/glfw3native.h>
+#include <GLFW/glfw3native.h>
 
 #include <memory>
 #include <string>
