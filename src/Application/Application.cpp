@@ -2,7 +2,6 @@
 #include <filesystem>
 #include "Application.h"
 
-#define STB_IMAGE_IMPLEMENTATION 
 #include "stb/stb_image.h"
 
 #include "config.h"

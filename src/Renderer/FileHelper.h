@@ -1,6 +1,6 @@
 #pragma once
 #define GLFW_INCLUDE_VULKAN
-#include <glfw/glfw3.h>
+#include <GLFW/glfw3.h>
 #define GLFW_EXPOSENATIVE_WIN32
 #include <glfw/glfw3native.h>
 
