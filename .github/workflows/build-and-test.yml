@@ -1,0 +1,43 @@
+name: CMake Build and Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read  
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository 
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            g++ \
+            libvulkan-dev \
+            mesa-vulkan-drivers \
+            libglfw3-dev \
+            libglm-dev \
+            libgtest-dev \
+            xvfb
+      - name: Configure CMake
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=DEBUG
+
+      - name: Build
+        run: cmake --build build --parallel 2
+
+      - name: Run tests
+        run: |
+          export VK_ICD_FILENAMES="$(find /usr/share/vulkan/icd.d -name 'lvp_icd*.json' -print -quit)"
+          xvfb-run -a ctest --test-dir build --output-on-failure
