@@ -80,3 +80,9 @@ Desktop.ini
 
 # Optional: generated test output
 /extern/*/Testing/
+
+# Google Test results
+XMLGoogleTestResults.xml
+
+# CMake Google Test discovery
+cmake_test_discovery_*.json
