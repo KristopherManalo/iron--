@@ -1,11 +1,10 @@
 #pragma once
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-#define GLFW_EXPOSENATIVE_WIN32
-#include <glfw/glfw3native.h>
 
 #include <fstream>
 #include <vector>
+#include <format>
 #include <Vulkan/VkContext.h>
 
 /// @brief Converts file path into 

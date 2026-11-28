@@ -1,0 +1,75 @@
+
+name: CMake Build and Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            g++ \
+            libvulkan-dev \
+            mesa-vulkan-drivers \
+            vulkan-validationlayers \
+            libgl-dev \
+            libx11-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxcursor-dev \
+            libxi-dev \
+            xvfb
+
+      - name: Install Slang
+        run: |
+          SLANG_VERSION=2026.23
+          SLANG_DIR="$RUNNER_TEMP/slang"
+
+          mkdir -p "$SLANG_DIR"
+
+          curl -L \
+            "https://github.com/shader-slang/slang/releases/download/v${SLANG_VERSION}/slang-${SLANG_VERSION}-linux-x86_64.tar.gz" \
+            -o "$RUNNER_TEMP/slang.tar.gz"
+
+          tar -xzf "$RUNNER_TEMP/slang.tar.gz" -C "$SLANG_DIR"
+
+          echo "$SLANG_DIR/bin" >> "$GITHUB_PATH"
+          echo "$SLANG_DIR/lib" >> "$GITHUB_PATH"
+
+      - name: Configure CMake
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DGLFW_BUILD_WAYLAND=OFF
+
+      - name: Build test targets
+        run: |
+          cmake --build build \
+            --target RendererTests TypesTests \
+            --parallel 2
+
+      - name: Run tests
+        run: |
+          export VK_ICD_FILENAMES="$(find /usr/share/vulkan/icd.d -name 'lvp_icd*.json' -print -quit)"
+          export LD_LIBRARY_PATH="$RUNNER_TEMP/slang/lib:$LD_LIBRARY_PATH"
+
+          xvfb-run -a ctest \
+            --test-dir build \
+            --output-on-failure

@@ -2,6 +2,7 @@
 #include <stdexcept>
 #include <string>
 #include <assert.h>
+#include <cstring>
 
 
 Buffer::Buffer(

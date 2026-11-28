@@ -3,6 +3,8 @@
 #include <iostream>
 #include <set>
 #include <algorithm>
+#include <cstring>
+#include <limits>
 
 #include "config.h"
 
@@ -530,7 +532,7 @@ VkPresentModeKHR VkContext::chooseSwapPresentMode(
 VkExtent2D VkContext::chooseSwapExtent(
 	const VkSurfaceCapabilitiesKHR& capabilities
 ) {
-	if (capabilities.currentExtent.width != (std::numeric_limits<uint32_t>::max)()) {
+	if (capabilities.currentExtent.width != (std::numeric_limits<uint32_t>::max())) {
 		return capabilities.currentExtent;
 	}
 	else {
@@ -555,6 +557,7 @@ VkExtent2D VkContext::chooseSwapExtent(
 
 		return actualExtent;
 	}
+	return {};
 }
 
 VkImageView VkContext::createImageView(

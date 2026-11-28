@@ -1,5 +1,6 @@
 #include <iostream>
 #include <filesystem>
+#include <format>
 #include "Application.h"
 
 #include "stb/stb_image.h"
