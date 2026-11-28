@@ -5,29 +5,50 @@ project(iron--)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+include(FetchContent)
+include(CTest)
+
+# ------------------------------------------------------
+# Dependencies
+# ------------------------------------------------------
+
+add_subdirectory(extern/glfw)
+add_subdirectory(extern/glm)
+
+find_package(Vulkan REQUIRED)
 
 
-add_executable(iron--
-    assets/resources.rc
+# ------------------------------------------------------
+# Core library
+#       Contains anything not-reliant with Vulkan 
+# ------------------------------------------------------
 
-    src/main.cpp
-    src/config.h
-    
-    src/Application/Application.h
-    src/Application/Application.cpp
-
-    src/Vulkan/VkContext.h
-    src/Vulkan/VkContext.cpp
-
+add_library(imm_core STATIC
+    src/scene/Scene.h
+    src/scene/Scene.cpp
     src/scene/Camera.h
     src/scene/Camera.cpp
 
-    src/types/Vertex.h
-    src/types/SpriteInstance.h
-    src/types/CameraUBO.h
-    src/types/SpriteSheet.h
-    src/types/SpriteSheet.cpp
-    
+    src/misc/stb_image.cpp
+)
+
+target_include_directories(imm_core PUBLIC
+    src
+    extern
+)
+
+target_link_libraries(imm_core PUBLIC
+    glm
+)
+
+# ------------------------------------------------------
+# Graphics library 
+#       Contains anything reliant with Vulkan
+# ------------------------------------------------------
+
+add_library(imm_graphics STATIC
+    src/Vulkan/VkContext.h
+    src/Vulkan/VkContext.cpp
 
     src/resources/Buffer.h
     src/resources/Buffer.cpp
@@ -38,34 +59,51 @@ add_executable(iron--
 
     src/renderer/Renderer.h
     src/renderer/Renderer.cpp
-
-    src/renderer/FileHelper.h
-    
     src/renderer/RenderPassManager.h
     src/renderer/RenderPassManager.cpp
-
     src/renderer/TriangleRenderer.h
     src/renderer/TriangleRenderer.cpp
-
     src/renderer/SpriteRenderer.h
     src/renderer/SpriteRenderer.cpp
+
+    src/types/SpriteSheet.h
+    src/types/SpriteSheet.cpp
+    src/types/SpriteInstance.h
+    src/types/Vertex.h
+    src/types/CameraUBO.h
+
 )
 
-add_subdirectory(extern/glfw)
-add_subdirectory(extern/glm)
-
-find_package(Vulkan REQUIRED)
-
-target_link_libraries(iron-- PRIVATE
-    Vulkan::Vulkan
-    glm
-    glfw
-)
-
-target_include_directories(iron-- PRIVATE
+target_include_directories(imm_graphics PUBLIC
     src
     extern
 )
+
+target_link_libraries(imm_graphics PUBLIC
+    Vulkan::Vulkan
+    imm_core
+    glfw
+)
+
+# ------------------------------------------------------
+# Application
+#       Entry point
+# ------------------------------------------------------
+
+add_executable(iron--
+    assets/resources.rc
+    src/main.cpp
+    src/Application/Application.cpp
+
+)
+
+target_link_libraries(iron-- PRIVATE
+    imm_graphics
+)
+
+# ------------------------------------------------------
+# Shaders
+# ------------------------------------------------------
 
 find_program(SLANGC slangc REQUIRED)
 
@@ -102,11 +140,30 @@ compile_slang_shader(sprite.slang fragmentMain sprite.frag fragment)
 add_custom_target(Shaders DEPENDS ${SHADER_OUTPUTS})
 add_dependencies(${PROJECT_NAME} Shaders)
 
-add_custom_command(TARGET iron-- POST_BUILD
-#    COMMAND ${CMAKE_COMMAND} -E copy_directory
-#        ${CMAKE_SOURCE_DIR}/sprites
-#        $<TARGET_FILE_DIR:iron-->/sprites
+# ------------------------------------------------------
+# Assets
+# ------------------------------------------------------
+
+add_custom_target(CopyAssets
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/assets
-        $<TARGET_FILE_DIR:iron-->/assets
+        ${CMAKE_BINARY_DIR}/assets
 )
+
+add_dependencies(iron-- CopyAssets)
+
+# ------------------------------------------------------
+# Tests
+# ------------------------------------------------------
+
+FetchContent_Declare(
+    googletest
+    URL https://github.com/google/googletest/archive/refs/heads/main.zip
+)
+
+FetchContent_MakeAvailable(googletest)
+
+enable_testing()
+
+add_subdirectory(tests)
+

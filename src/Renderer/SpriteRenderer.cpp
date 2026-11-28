@@ -178,6 +178,24 @@ SpriteID SpriteRenderer::addSprite(
 	};
 }
 
+std::optional<uint32_t> SpriteRenderer::getBatchAmount(
+	uint32_t sheetIndex
+) const {
+	if (sheetIndex >= instanceBatches.size()) {
+		return std::nullopt;
+	}
+	return static_cast<uint32_t>(instanceBatches[sheetIndex].size());
+}
+
+const std::vector<SpriteInstance>* SpriteRenderer::getBatch(
+	uint32_t sheetIndex
+) const {
+	if (sheetIndex >= instanceBatches.size()) {
+		return nullptr;
+	}
+	return &instanceBatches[sheetIndex];
+}
+
 void SpriteRenderer::createPipelineLayout() {
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{
 	.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
@@ -235,7 +253,7 @@ void SpriteRenderer::createGraphicsPipeline() {
 #pragma region Create attribute descriptions
 	std::array<VkVertexInputAttributeDescription, 
 		Vertex::ATTRIBUTE_COUNT + SpriteInstance::ATTRIBUTE_COUNT>
-		attributeDescriptions;
+		attributeDescriptions{};
 
 	auto vertexAttributes = Vertex::getAttributeDescriptions();
 	auto instanceAttributes = SpriteInstance::getAttributeDescriptions();

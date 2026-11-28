@@ -11,8 +11,8 @@ TriangleRenderer::TriangleRenderer(
 
 
 void TriangleRenderer::initialize() {
-	std::cout << ctxt.getPhysicalDevice() << std::endl;
-	std::cout << rpm.getMainRenderPass() << std::endl;
+	//std::cout << ctxt.getPhysicalDevice() << std::endl;
+	//std::cout << rpm.getMainRenderPass() << std::endl;
 	createPipelineLayout();
 	createGraphicsPipeline();
 }

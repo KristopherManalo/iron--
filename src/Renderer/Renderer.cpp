@@ -69,7 +69,7 @@ void Renderer::initialize(const char progName[]) {
 
 			glm::vec4 tint = index < 4
 				? glm::vec4(1.0f)
-				: tints[(index - 4) % tints.size()];
+				: tints[(static_cast<unsigned long long>(index) - 4) % tints.size()];
 
 			spriteRenderer.addSprite(
 				temp_sheet,

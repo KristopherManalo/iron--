@@ -6,8 +6,8 @@
 
 #include "config.h"
 
-#define PROGRAM_NAME "Iron--"
-#define ENGINE_NAME "Iron--"
+constexpr auto PROGRAM_NAME = "Iron--";
+constexpr auto ENGINE_NAME = "Iron--";
 
 void VkContext::initialize(GLFWwindow* window) {
 	this->window = window;
@@ -168,33 +168,28 @@ void VkContext::createInstance() {
 	};
 
 	auto extensions = getRequiredExtensions();
+
 	VkInstanceCreateInfo createInfo{
-		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-		.pApplicationInfo = &appInfo,
+	.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+	.pApplicationInfo = &appInfo,
 
-		.enabledLayerCount = static_cast<uint32_t>(validationLayers.size()),
-		.ppEnabledLayerNames = validationLayers.data(),
-
-		.enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
-		.ppEnabledExtensionNames = extensions.data(),
+	.enabledExtensionCount =
+		static_cast<uint32_t>(extensions.size()),
+	.ppEnabledExtensionNames = extensions.data(),
 	};
 
 	VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
+
 	if (enableValidationLayers) {
 		createInfo.enabledLayerCount =
 			static_cast<uint32_t>(validationLayers.size());
+
 		createInfo.ppEnabledLayerNames =
 			validationLayers.data();
 
 		populateDebugMessengerCreateInfo(debugCreateInfo);
-		createInfo.pNext =
-			(VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
+		createInfo.pNext = &debugCreateInfo;
 	}
-	else {
-		createInfo.enabledLayerCount = 0;
-		createInfo.pNext = nullptr;
-	}
-
 	if (vkCreateInstance(&createInfo, nullptr, &instance)
 		!= VK_SUCCESS) {
 		throw std::runtime_error(

@@ -5,6 +5,7 @@
 
 #include <array>
 #include <cstddef>
+#include <types/Vertex.h>
 
 /// @brief Defines the sheet and index
 /// sprite instance identifies as
@@ -68,4 +69,6 @@ struct SpriteInstance {
 
 		return attributeDescriptions;
 	}
+
+	bool operator==(const SpriteInstance&) const = default;
 };
