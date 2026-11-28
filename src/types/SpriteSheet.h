@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <vector>
 #include <glm/glm.hpp>
-#include "vulkan/VkContext.h"
+#include "Vulkan/VkContext.h"
 #include "resources/Texture.h"
 #include "resources/Buffer.h"
 #include "types/SpriteInstance.h"
