@@ -158,7 +158,7 @@ add_dependencies(iron-- CopyAssets)
 
 FetchContent_Declare(
     googletest
-    URL https://github.com/google/googletest/archive/refs/heads/main.zip
+    URL https://github.com/google/googletest/archive/refs/tags/v1.16.0.zip
 )
 
 FetchContent_MakeAvailable(googletest)
